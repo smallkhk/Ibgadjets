@@ -24,7 +24,6 @@ route into the router, and the shape of the system changes:
 | Payment approved → customer online | up to 60s | instant |
 | Suspend a customer | up to 60s | instant |
 | Live session data | last poll, ≤60s stale | live |
-| Managing the router remotely | only on site | Winbox from anywhere |
 | A second location later | second poller, works fine | one server, many routers |
 
 Read that table honestly, though. **Your slowest step is a human
@@ -33,9 +32,21 @@ minutes, the 60 seconds after it is noise. The polling design is not a
 compromise you are suffering — for one router with manual approvals, it is
 genuinely the right shape.
 
-The remote-management line is the one that will actually bite you. The day
-the router misbehaves and you are not in Ibadan, a tunnel is the
-difference between fixing it from your laptop and driving over.
+### Remote router access does NOT need a VPS
+
+An earlier draft of this document listed "Winbox from anywhere" as a
+reason to buy a VPS. That was wrong, and it mattered, so here is the
+correction.
+
+MikroTik ship **Back To Home**, a free WireGuard service built into
+RouterOS 7.12+. It is designed for exactly this situation: when the router
+has no public IP, the connection is made through MikroTik's relay servers,
+so CGNAT is not an obstacle. Traffic stays end-to-end encrypted — the
+relay never holds the keys. It needs an ARM, ARM64 or TILE device, and the
+hAP ac² is ARM, so it qualifies.
+
+Set-up is in `docs/deploy.md`. It costs nothing and removes the only line
+in that table that would genuinely have bitten you.
 
 ## Things people think a VPS gives you here, that it does not
 
@@ -65,9 +76,11 @@ breaks.
 **Move to a VPS when one of these becomes true:**
 
 1. You add a second dish or a second compound.
-2. You are tired of needing to be physically present to fix the router.
-3. You automate payments (OPay or a virtual-account provider) and the
+2. You automate payments (OPay or a virtual-account provider) and the
    60-second gap becomes the slowest step instead of the fastest.
+
+Note what is *not* on that list any more: getting into the router from
+somewhere else. Back To Home covers that for free.
 
 The migration is not painful. It is the same PHP, the same MySQL dump, the
 same schema. `router-sync.php` keeps working over the tunnel exactly as it

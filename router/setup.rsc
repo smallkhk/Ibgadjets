@@ -151,6 +151,11 @@ add chain=forward packet-mark=ibg-tether action=drop disabled=yes \
 # ---------------------------------------------------------------------
 # Management hardening
 # ---------------------------------------------------------------------
+# Winbox is restricted to the local subnet on purpose. To reach it from
+# outside, enable Back To Home (IP > Cloud > Back To Home) and add that
+# tunnel's subnet here — see docs/deploy.md. Never open Winbox to the
+# internet: exposed Winbox ports have been mass-exploited before, and a
+# compromised router means every customer's traffic.
 /ip service
 set telnet disabled=yes
 set ftp disabled=yes

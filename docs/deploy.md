@@ -137,6 +137,39 @@ Upload, then:
 That defines the script. The scheduler entry was already created by
 `setup.rsc`, so it starts running within a minute.
 
+### Remote access to the router (free, do this before you leave site)
+
+Starlink's CGNAT means nothing can dial into the router, so by default you
+can only change its configuration while standing on the compound WiFi.
+That is fine until the day it misbehaves and you are somewhere else.
+
+MikroTik's **Back To Home** solves it for free. It is WireGuard, built into
+RouterOS 7.12+, and when the router has no public IP the connection runs
+through MikroTik's relay servers — CGNAT is not an obstacle. Traffic stays
+end-to-end encrypted; the relay never sees the keys. It needs an ARM,
+ARM64 or TILE device, and the hAP ac² is ARM.
+
+In Winbox, while on site:
+
+1. **IP → Cloud → Back To Home**, enable it
+2. Add a user, which produces a QR code
+3. Install the *MikroTik Back To Home* app on your phone, scan it
+4. Test it on mobile data with the compound WiFi **off** — that is the
+   only test that proves CGNAT is really being traversed
+
+Then let Winbox through on the tunnel. `setup.rsc` deliberately restricts
+Winbox to the hotspot subnet, which would lock out the tunnel too:
+
+```
+/interface wireguard print          # find the Back To Home interface
+/ip address print                   # note the address it was given
+/ip service set winbox address=10.5.50.0/24,<the BTH subnet>
+```
+
+**Do not instead open Winbox to the internet.** Exposed Winbox ports have
+been mass-exploited more than once, and a compromised router means every
+customer's traffic. The tunnel is the answer; a port forward is not.
+
 ### Watch the first cycle
 
 On the router:
