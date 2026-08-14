@@ -1,0 +1,10 @@
+# This directory must NOT be web reachable. It normally sits above
+# public_html, where Apache cannot see it anyway — this file is the
+# safety net for the day somebody drags the folder into the docroot.
+
+Require all denied
+
+<IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+</IfModule>

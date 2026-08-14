@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IB Gadgets Telecom — Starlink WiFi for the compound</title>
+<meta name="description" content="Fast, honest WiFi off one Starlink dish. Buy a data bundle in Naira, connect, and browse. For the compound and for visitors.">
+<meta name="theme-color" content="#0A1430">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/app.css">
+</head>
+<body>
+
+<!-- ═══════════════════════ NAV ═══════════════════════ -->
+<nav class="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="#top">
+      <svg class="brand-mark" viewBox="0 0 34 34" fill="none" aria-hidden="true">
+        <circle cx="17" cy="17" r="16" stroke="#39DFF2" stroke-opacity=".45"/>
+        <path d="M17 6 A11 11 0 0 1 28 17" stroke="#39DFF2" stroke-width="2.5" stroke-linecap="round"/>
+        <path d="M17 11 A6 6 0 0 1 23 17" stroke="#FF3D8A" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="17" cy="17" r="3" fill="#FFB03D"/>
+      </svg>
+      <span>IB Gadgets<small>Telecom</small></span>
+    </a>
+
+    <div class="nav-links">
+      <a href="#plans">Plans</a>
+      <a href="#how">How it works</a>
+      <a href="#coverage">Coverage</a>
+      <a href="#faq">Questions</a>
+    </div>
+
+    <div class="nav-cta" id="navCta">
+      <button class="btn btn-ghost btn-sm" onclick="openAuth('login')">Log in</button>
+      <button class="btn btn-primary btn-sm" onclick="openAuth('signup')">Get connected</button>
+    </div>
+  </div>
+</nav>
+
+<!-- ═══════════════════════ HERO ═══════════════════════ -->
+<header class="hero" id="top">
+  <div class="wrap hero-grid">
+    <div>
+      <span class="eyebrow">Starlink · Ibadan</span>
+      <h1>Real internet,<br><span>sold by the gig.</span></h1>
+      <p class="lede">
+        One dish on the roof, shared properly. Buy a bundle in Naira, connect once,
+        and your phone remembers the network from then on. No monthly contract,
+        no data that vanishes at midnight, no queue at anybody's door.
+      </p>
+
+      <div class="hero-actions">
+        <button class="btn btn-primary" onclick="scrollToPlans()">See the bundles</button>
+        <button class="btn btn-ghost" onclick="openOv('ov-support')">Talk to a human</button>
+      </div>
+
+      <div class="hero-facts">
+        <div>
+          <div class="lbl">Online now</div>
+          <div class="val num" id="liveCount">—</div>
+        </div>
+        <div>
+          <div class="lbl">Top speed</div>
+          <div class="val num" id="topSpeed">—</div>
+        </div>
+        <div>
+          <div class="lbl">Starts from</div>
+          <div class="val num" id="fromPrice">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="shot">
+      <img src="assets/img/hero-dish.svg" alt="The Starlink dish on the compound roof at dusk" width="800" height="600">
+      <div class="shot-tag"><span class="dot-live"></span> Dish is up</div>
+    </div>
+  </div>
+</header>
+
+<!-- ═══════════════════════ TRUST STRIP ═══════════════════════ -->
+<div class="strip">
+  <div class="strip-in">
+    <div class="strip-cell"><div class="val num">₦500</div><div class="lbl">Cheapest bundle</div></div>
+    <div class="strip-cell"><div class="val num">60s</div><div class="lbl">From payment to online</div></div>
+    <div class="strip-cell"><div class="val num">24/7</div><div class="lbl">Dish runs all night</div></div>
+    <div class="strip-cell"><div class="val num">0</div><div class="lbl">Contracts to sign</div></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════ PLANS ═══════════════════════ -->
+<section class="sec" id="plans">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">Bundles</span>
+      <h2>Pick what actually fits you.</h2>
+      <div class="tabs" role="tablist">
+        <button class="tab on" id="tab-compound" role="tab" onclick="setAud('compound')">I live here</button>
+        <button class="tab"    id="tab-visitor"  role="tab" onclick="setAud('visitor')">I'm visiting</button>
+      </div>
+      <p class="tab-note" id="audNote"></p>
+    </div>
+    <div class="plans" id="planGrid">
+      <p class="empty">Loading bundles…</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════ HOW IT WORKS ═══════════════════════ -->
+<section class="sec" id="how" style="border-top:1px solid var(--line)">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">How it works</span>
+      <h2>Three steps, then forget about it.</h2>
+      <p class="lede">The only part that needs a human is confirming your transfer. Everything after that is automatic.</p>
+    </div>
+
+    <div class="steps">
+      <article class="step">
+        <div class="step-img"><img src="assets/img/step-1-signup.svg" alt="Creating an account with a phone number" width="640" height="400" loading="lazy"></div>
+        <div class="step-body">
+          <div class="step-n">STEP 01</div>
+          <h3>Open an account</h3>
+          <p>Your phone number is your username — no email, no forms to print. Residents add a flat number so we know where you are.</p>
+        </div>
+      </article>
+
+      <article class="step">
+        <div class="step-img"><img src="assets/img/step-2-pay.svg" alt="A bank transfer receipt being uploaded" width="640" height="400" loading="lazy"></div>
+        <div class="step-body">
+          <div class="step-n">STEP 02</div>
+          <h3>Transfer and upload</h3>
+          <p>Pick a bundle, transfer to the account shown with your reference in the narration, then upload the receipt. We confirm it, usually within minutes.</p>
+        </div>
+      </article>
+
+      <article class="step">
+        <div class="step-img"><img src="assets/img/step-3-browse.svg" alt="Devices connected and browsing" width="640" height="400" loading="lazy"></div>
+        <div class="step-body">
+          <div class="step-n">STEP 03</div>
+          <h3>Connect once</h3>
+          <p>Join <strong>IB Gadgets</strong>, log in on the page that pops up, and that's the last time. Your phone is remembered — walk in tomorrow and it just connects.</p>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════ COVERAGE ═══════════════════════ -->
+<section class="sec" id="coverage" style="border-top:1px solid var(--line)">
+  <div class="wrap split">
+    <div>
+      <span class="eyebrow">Coverage</span>
+      <h2 style="margin:14px 0 16px">Built for one compound, done properly.</h2>
+      <p class="lede">
+        This isn't a reseller shuffling somebody else's bandwidth. It's one Starlink dish,
+        one router, and a limit on how many people we sell to — because the whole point is
+        that it stays fast.
+      </p>
+      <ul class="checks">
+        <li>
+          <svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2.5 8.5l3.5 3.5 7.5-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span><strong>Every flat in the compound</strong> — 2.4GHz reaches through the walls, 5GHz for anyone near the router.</span>
+        </li>
+        <li>
+          <svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2.5 8.5l3.5 3.5 7.5-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span><strong>The gate, the shop front and the compound yard</strong> — visitor bundles work anywhere in range.</span>
+        </li>
+        <li>
+          <svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2.5 8.5l3.5 3.5 7.5-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span><strong>Your speed is yours.</strong> Each bundle has its own cap, so one person downloading cannot flatten everybody else.</span>
+        </li>
+        <li>
+          <svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2.5 8.5l3.5 3.5 7.5-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span><strong>It keeps counting while NEPA is off</strong> — the dish and router run on backup, so your bundle isn't wasted.</span>
+        </li>
+      </ul>
+    </div>
+
+    <div class="split-media shot">
+      <img src="assets/img/compound.svg" alt="The compound at night with the WiFi coverage area" width="800" height="600" loading="lazy">
+      <div class="shot-tag">Ibadan · Oyo State</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════ GALLERY ═══════════════════════ -->
+<section class="sec" style="border-top:1px solid var(--line);padding-top:clamp(40px,6vw,72px)">
+  <div class="wrap">
+    <div class="sec-head" style="margin-bottom:26px">
+      <span class="eyebrow">The setup</span>
+      <h2 style="margin-top:14px">Nothing hidden.</h2>
+    </div>
+    <div class="gallery">
+      <figure><img src="assets/img/gallery-1.svg" alt="The Mikrotik router on the wall" loading="lazy"><figcaption>The router</figcaption></figure>
+      <figure><img src="assets/img/gallery-2.svg" alt="Cabling from the dish" loading="lazy"><figcaption>Cabling</figcaption></figure>
+      <figure><img src="assets/img/gallery-3.svg" alt="Installation day" loading="lazy"><figcaption>Install day</figcaption></figure>
+      <figure><img src="assets/img/gallery-4.svg" alt="People online in the compound" loading="lazy"><figcaption>Online</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════ FAQ ═══════════════════════ -->
+<section class="sec" id="faq" style="border-top:1px solid var(--line)">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">Questions</span>
+      <h2 style="margin-top:14px">The things people actually ask.</h2>
+    </div>
+
+    <div class="faq">
+      <details open>
+        <summary>Do I have to log in every single day?</summary>
+        <p>No. You log in once on each device. After that the router remembers your phone and connects it automatically, even after you leave and come back. You only see the login page again if you buy on a brand new device.</p>
+      </details>
+      <details>
+        <summary>How many devices can I use?</summary>
+        <p>Each bundle says how many. If you need more — a laptop, a smart TV, your children's tablets — ask us and we can raise the limit on your account without changing your plan.</p>
+      </details>
+      <details>
+        <summary>What if my data finishes before the time?</summary>
+        <p>The connection stops and you buy again. Nothing else changes — same account, same devices, same login. Unlimited bundles never run out on data, only on time.</p>
+      </details>
+      <details>
+        <summary>Can I share my connection with my neighbour?</summary>
+        <p>Your own devices, yes, up to your device limit. Turning your phone into a hotspot for other people is not allowed — the router can see when it happens, and accounts that keep doing it get suspended. If two of you want to share properly, buy a bundle with more devices; it's cheaper than two accounts.</p>
+      </details>
+      <details>
+        <summary>What happens if the dish goes down?</summary>
+        <p>Your bundle's data doesn't move while you can't browse, but the clock on time-limited plans keeps running. If we ever have a long outage, message us and we'll extend you.</p>
+      </details>
+      <details>
+        <summary>How do I pay?</summary>
+        <p>Bank transfer with a reference code, then upload the receipt — that's the main way. USDT on BSC or TRON also works if that's easier for you. Card payment is coming.</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════ FOOTER ═══════════════════════ -->
+<footer class="foot">
+  <div class="wrap">
+    <div class="foot-in">
+      <div style="max-width:300px">
+        <div class="brand" style="margin-bottom:12px">
+          <svg class="brand-mark" viewBox="0 0 34 34" fill="none" aria-hidden="true">
+            <circle cx="17" cy="17" r="16" stroke="#39DFF2" stroke-opacity=".45"/>
+            <path d="M17 6 A11 11 0 0 1 28 17" stroke="#39DFF2" stroke-width="2.5" stroke-linecap="round"/>
+            <circle cx="17" cy="17" r="3" fill="#FFB03D"/>
+          </svg>
+          <span>IB Gadgets<small>Telecom</small></span>
+        </div>
+        <p class="hint">Community WiFi off one Starlink dish. Ibadan, Oyo State.</p>
+      </div>
+
+      <div>
+        <h4>Bundles</h4>
+        <a href="#plans">Compound plans</a>
+        <a href="#plans">Visitor plans</a>
+        <a href="#how">How it works</a>
+      </div>
+
+      <div>
+        <h4>Account</h4>
+        <a href="#" onclick="openAuth('login');return false">Log in</a>
+        <a href="#" onclick="openAuth('signup');return false">Create account</a>
+        <a href="dashboard.html">My dashboard</a>
+      </div>
+
+      <div>
+        <h4>Support</h4>
+        <a href="#" onclick="openOv('ov-support');return false">Contact us</a>
+        <a href="#faq">Questions</a>
+        <a id="footWhatsapp" href="#">WhatsApp</a>
+      </div>
+    </div>
+
+    <div class="foot-bottom">
+      <span>© <span id="year"></span> IB Gadgets Telecom</span>
+      <span class="num" id="footStatus">—</span>
+    </div>
+  </div>
+</footer>
+
+<!-- ═══════════════════════ AUTH MODAL ═══════════════════════ -->
+<div class="overlay" id="ov-auth" onclick="if(event.target===this)closeAll()">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+    <div class="modal-head">
+      <div>
+        <h3 id="authTitle">Create your account</h3>
+        <p class="hint" style="margin-top:5px" id="authSub">Takes about a minute.</p>
+      </div>
+      <button class="x" onclick="closeAll()" aria-label="Close">×</button>
+    </div>
+
+    <form id="authForm" onsubmit="return submitAuth(event)">
+      <div class="field">
+        <label for="f-phone">Phone number</label>
+        <input id="f-phone" name="phone" inputmode="tel" autocomplete="tel" placeholder="0803 111 2222" required>
+        <div class="hint">This is your username. Use the number you actually carry.</div>
+      </div>
+
+      <div id="signupFields">
+        <div class="field">
+          <label for="f-name">Full name</label>
+          <input id="f-name" name="full_name" autocomplete="name" placeholder="Ada Bright">
+        </div>
+        <div class="row-2">
+          <div class="field">
+            <label for="f-type">You are</label>
+            <select id="f-type" name="type" onchange="toggleFlat()">
+              <option value="compound">Living in the compound</option>
+              <option value="visitor">Visiting / outside</option>
+            </select>
+          </div>
+          <div class="field" id="flatField">
+            <label for="f-flat">Flat or house no.</label>
+            <input id="f-flat" name="flat_no" placeholder="4B">
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="f-pass">Password</label>
+        <input id="f-pass" name="password" type="password" autocomplete="current-password" placeholder="At least 6 characters" required>
+      </div>
+
+      <button class="btn btn-primary btn-block" style="margin-top:10px" id="authBtn" type="submit">Create account</button>
+      <p class="hint" style="text-align:center;margin-top:14px" id="authSwap"></p>
+    </form>
+  </div>
+</div>
+
+<!-- ═══════════════════════ CHECKOUT MODAL ═══════════════════════ -->
+<div class="overlay" id="ov-buy" onclick="if(event.target===this)closeAll()">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="buyTitle">
+    <div class="modal-head">
+      <div>
+        <h3 id="buyTitle">Checkout</h3>
+        <p class="hint" style="margin-top:5px" id="buySub"></p>
+      </div>
+      <button class="x" onclick="closeAll()" aria-label="Close">×</button>
+    </div>
+
+    <!-- step 1: choose method -->
+    <div id="buyStep1">
+      <div class="summary">
+        <div class="srow"><span id="sumName">—</span><span class="num" id="sumPrice">—</span></div>
+        <div class="srow"><span id="sumDetail" class="hint">—</span></div>
+        <div class="srow total"><span>Total</span><span class="num" id="sumTotal">—</span></div>
+      </div>
+
+      <div class="pay-opts" id="payOpts">
+        <label class="pay-opt on" data-method="bank_transfer">
+          <input type="radio" name="paymethod" value="bank_transfer" checked hidden>
+          <div><div class="t">Bank transfer</div><div class="d">Transfer, upload the receipt, we confirm.</div></div>
+        </label>
+        <label class="pay-opt" data-method="usdt_bsc">
+          <input type="radio" name="paymethod" value="usdt_bsc" hidden>
+          <div><div class="t">USDT · BSC (BEP-20)</div><div class="d">Paste the transaction hash after sending.</div></div>
+        </label>
+        <label class="pay-opt" data-method="usdt_tron">
+          <input type="radio" name="paymethod" value="usdt_tron" hidden>
+          <div><div class="t">USDT · TRON (TRC-20)</div><div class="d">Paste the transaction hash after sending.</div></div>
+        </label>
+      </div>
+
+      <button class="btn btn-primary btn-block" id="buyGo" onclick="startPurchase()">Continue</button>
+      <p class="hint" style="text-align:center;margin-top:12px">You'll see the account details on the next screen.</p>
+    </div>
+
+    <!-- step 2: pay -->
+    <div id="buyStep2" class="hide">
+      <div id="payBank" class="hide">
+        <div class="bank-card">
+          <div class="bank-row"><span class="k">Bank</span><span class="v" id="bkBank">—</span></div>
+          <div class="bank-row"><span class="k">Account name</span><span class="v" id="bkName">—</span></div>
+          <div class="bank-row">
+            <span class="k">Account number</span>
+            <span class="v num" id="bkNo">—</span>
+          </div>
+          <div class="bank-row"><span class="k">Amount</span><span class="v num" id="bkAmt">—</span></div>
+        </div>
+
+        <p class="hint" style="text-align:center">Put this in the transfer narration</p>
+        <div class="ref" id="bkRef">—</div>
+        <button class="btn btn-ghost btn-sm btn-block" onclick="copyRef()">Copy reference</button>
+      </div>
+
+      <div id="payUsdt" class="hide">
+        <div class="bank-card">
+          <div class="bank-row"><span class="k">Network</span><span class="v" id="usChain">—</span></div>
+          <div class="bank-row"><span class="k">Send</span><span class="v num" id="usAmt">—</span></div>
+        </div>
+        <p class="hint" style="text-align:center;margin-bottom:8px">To this address</p>
+        <div class="ref" id="usAddr" style="font-size:12px;letter-spacing:.06em;word-break:break-all">—</div>
+
+        <div class="field" style="margin-top:16px">
+          <label for="f-hash">Transaction hash</label>
+          <input id="f-hash" placeholder="0x…" autocomplete="off">
+        </div>
+        <button class="btn btn-beam btn-block" onclick="submitHash()">Submit hash</button>
+      </div>
+
+      <div id="proofBox" class="hide" style="margin-top:20px">
+        <div class="field">
+          <label for="f-proof">Receipt screenshot</label>
+          <input id="f-proof" type="file" accept="image/jpeg,image/png,image/webp">
+          <div class="hint">JPG, PNG or WebP, under 5 MB.</div>
+        </div>
+        <button class="btn btn-primary btn-block" onclick="uploadProof()">Upload receipt</button>
+      </div>
+
+      <p class="hint" style="text-align:center;margin-top:16px">
+        Once we confirm, your bundle goes live within a minute.
+        <a href="dashboard.html" style="color:var(--beam)">Check your dashboard</a>.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════ SUPPORT MODAL ═══════════════════════ -->
+<div class="overlay" id="ov-support" onclick="if(event.target===this)closeAll()">
+  <div class="modal" style="max-width:420px" role="dialog" aria-modal="true">
+    <div class="modal-head">
+      <div><h3>Talk to us</h3><p class="hint" style="margin-top:5px">Fastest on WhatsApp.</p></div>
+      <button class="x" onclick="closeAll()" aria-label="Close">×</button>
+    </div>
+    <div class="bank-card">
+      <div class="bank-row"><span class="k">Phone</span><span class="v num" id="supPhone">—</span></div>
+      <div class="bank-row"><span class="k">WhatsApp</span><span class="v num" id="supWa">—</span></div>
+    </div>
+    <a class="btn btn-primary btn-block" id="supWaBtn" href="#" target="_blank" rel="noopener">Open WhatsApp</a>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="assets/js/api.js"></script>
+<script src="assets/js/site.js"></script>
+</body>
+</html>

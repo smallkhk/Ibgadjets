@@ -77,13 +77,14 @@ hr{border:0;border-top:1px solid rgba(255,255,255,.1);margin:22px 0}
     <b>IB Gadgets<small>Telecom</small></b>
   </div>
 
-  <div class="ssid"><span class="dot"></span> Connected to IB-Gadgets-Net</div>
+  <div class="ssid"><span class="dot"></span> Connected to IB Gadgets</div>
 
   <div class="card">
     $(if error)<div class="err">$(error)</div>$(endif)
 
     <h1>Sign in to browse</h1>
-    <p class="sub">Use the phone number and password you signed up with.</p>
+    <p class="sub">Use the phone number and password you signed up with.
+       You only do this once on this device — after today it connects on its own.</p>
 
     <form name="login" action="$(link-login-only)" method="post"
           onsubmit="return doLogin()">
@@ -103,7 +104,9 @@ hr{border:0;border-top:1px solid rgba(255,255,255,.1);margin:22px 0}
 
     <hr>
 
-    <a class="btn alt" href="http://PORTAL_URL/?from=hotspot">Create account &amp; buy data</a>
+    <!-- Walled garden lets this through without a plan. Must match the
+         dst-host entries in router/setup.rsc. -->
+    <a class="btn alt" href="http://ibgadgets.ng/?from=hotspot">Create account &amp; buy data</a>
 
     <p class="foot">
       No plan yet? Tap above — you can reach our site<br>and pay without internet.<br><br>

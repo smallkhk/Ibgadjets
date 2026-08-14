@@ -1,0 +1,46 @@
+<?php
+/**
+ * IB Gadgets Telecom — configuration
+ *
+ * DEPLOY: copy this file to  private/config.php  and fill it in.
+ * private/config.php is gitignored and MUST live OUTSIDE public_html.
+ *
+ * On Hostinger the layout is:
+ *   /home/USER/private/config.php     <- secrets, not web reachable
+ *   /home/USER/public_html/           <- document root
+ */
+
+return [
+
+    // ---- database (cPanel > MySQL Databases) --------------------------
+    'db' => [
+        'host'     => 'localhost',
+        'name'     => 'uXXXXXX_ibgadgets',
+        'user'     => 'uXXXXXX_ibg',
+        'pass'     => '',
+        'charset'  => 'utf8mb4',
+    ],
+
+    // ---- site ---------------------------------------------------------
+    'site_url'   => 'https://ibgadgets.ng',
+    'timezone'   => 'Africa/Lagos',
+    'debug'      => false,          // true prints SQL errors. NEVER true in production.
+
+    /**
+     * The shared secret the Mikrotik sends as  X-Sync-Key.
+     * Generate with:  php -r "echo bin2hex(random_bytes(32));"
+     * The exact same string goes into router/router-sync.rsc.
+     */
+    'sync_key'   => 'CHANGE-ME-64-hex-characters',
+
+    /**
+     * Where uploaded bank receipts are written. Outside public_html on
+     * purpose — they are served back only through api/proof.php after an
+     * admin session check.
+     */
+    'upload_dir' => __DIR__ . '/uploads',
+
+    // ---- session cookie -----------------------------------------------
+    'session_name'   => 'ibg_sess',
+    'session_secure' => true,       // requires HTTPS. Set false only for local testing.
+];

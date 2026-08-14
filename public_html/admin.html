@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — IB Gadgets Telecom</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/app.css">
+<style>
+  .adm-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:26px 0 24px;
+    border-bottom:1px solid var(--line);padding-bottom:14px}
+  .adm-tabs .tab{padding:9px 18px;font-size:14px}
+  .adm-tabs .tab.on{background:var(--beam);color:#052029}
+  .editor{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+  .mini{font-size:13px;padding:9px 12px}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="index.html">
+      <svg class="brand-mark" viewBox="0 0 34 34" fill="none" aria-hidden="true">
+        <circle cx="17" cy="17" r="16" stroke="#39DFF2" stroke-opacity=".45"/>
+        <circle cx="17" cy="17" r="3" fill="#FFB03D"/>
+      </svg>
+      <span>IB Gadgets<small>Admin</small></span>
+    </a>
+    <div class="nav-cta" id="admNav"></div>
+  </div>
+</nav>
+
+<main class="wrap" style="padding-top:40px;padding-bottom:90px">
+
+  <!-- login -->
+  <div id="gate" class="panel" style="max-width:420px;margin:60px auto">
+    <h3>Admin sign in</h3>
+    <form onsubmit="return doLogin(event)" style="margin-top:18px">
+      <div class="field"><label for="a-email">Email</label>
+        <input id="a-email" type="email" autocomplete="username" required></div>
+      <div class="field"><label for="a-pass">Password</label>
+        <input id="a-pass" type="password" autocomplete="current-password" required></div>
+      <button class="btn btn-primary btn-block" type="submit">Sign in</button>
+    </form>
+  </div>
+
+  <div id="app" class="hide">
+    <div class="adm-tabs" id="admTabs"></div>
+
+    <!-- OVERVIEW -->
+    <section id="v-over" class="advw">
+      <div class="grid-stats" id="statGrid"></div>
+      <div class="panel" style="margin-top:20px">
+        <h3>Router conversation</h3>
+        <p class="hint" style="margin-bottom:14px">The router calls in every 60 seconds. If this stops moving, the router cannot reach the site.</p>
+        <div class="tbl-scroll"><table class="tbl">
+          <thead><tr><th>When</th><th>Action</th><th>Result</th></tr></thead>
+          <tbody id="logRows"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <!-- PAYMENTS -->
+    <section id="v-pay" class="advw hide">
+      <div class="panel">
+        <h3>Payments waiting <span class="pill warn" id="payCount">0</span></h3>
+        <p class="hint" style="margin-bottom:16px">Check the money landed, then approve. The bundle goes live on the router within a minute.</p>
+        <div class="tbl-scroll"><table class="tbl">
+          <thead><tr><th>Reference</th><th>Customer</th><th>Plan</th><th>Amount</th><th>Method</th><th>Receipt</th><th>When</th><th></th></tr></thead>
+          <tbody id="payRows"></tbody>
+        </table></div>
+      </div>
+      <div class="panel" style="margin-top:18px">
+        <h3>Everything else</h3>
+        <div class="tbl-scroll"><table class="tbl">
+          <thead><tr><th>Reference</th><th>Customer</th><th>Amount</th><th>Status</th><th>When</th></tr></thead>
+          <tbody id="payAllRows"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <!-- CUSTOMERS -->
+    <section id="v-cust" class="advw hide">
+      <div class="panel">
+        <h3>Customers</h3>
+        <div class="field" style="max-width:320px">
+          <input id="custSearch" placeholder="Search phone, name or flat" oninput="loadCustomers()">
+        </div>
+        <p class="hint" style="margin-bottom:14px">
+          <strong>Devices</strong> is how many phones this person may use at once.
+          Leave it blank to follow whatever their bundle allows, or type a number to
+          override it — that takes effect on the router within a minute.
+        </p>
+        <div class="tbl-scroll"><table class="tbl">
+          <thead><tr><th>Phone</th><th>Name</th><th>Type</th><th>Plan</th><th>Expires</th><th>Devices</th><th>Status</th><th></th></tr></thead>
+          <tbody id="custRows"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <!-- PLANS -->
+    <section id="v-plans" class="advw hide">
+      <div class="panel">
+        <h3>Bundles</h3>
+        <p class="hint" style="margin-bottom:16px">
+          Price, data, both speed caps, how long it lasts and how many devices — all editable.
+          Saving a change re-applies it to everyone currently on that bundle.
+        </p>
+        <div class="tbl-scroll"><table class="tbl">
+          <thead><tr>
+            <th>Name</th><th>For</th><th>Price ₦</th><th>Data</th>
+            <th>Down Mbps</th><th>Up Mbps</th><th>Hours</th><th>Devices</th>
+            <th>Tier</th><th>Live</th><th></th>
+          </tr></thead>
+          <tbody id="planRows"></tbody>
+        </table></div>
+        <button class="btn btn-beam btn-sm" style="margin-top:18px" onclick="newPlan()">Add a bundle</button>
+      </div>
+    </section>
+
+    <!-- LIVE -->
+    <section id="v-live" class="advw hide">
+      <div class="panel">
+        <h3>Online right now</h3>
+        <p class="hint" style="margin-bottom:14px">
+          Reported by the router each cycle. A <span class="pill bad">sharing</span> flag means
+          the traffic from that device shows a TTL one hop short — a phone acting as a hotspot
+          for somebody else.
+        </p>
+        <div class="tbl-scroll"><table class="tbl">
+          <thead><tr><th>Customer</th><th>Device</th><th>IP</th><th>Used</th><th>Last seen</th><th>Sharing</th><th></th></tr></thead>
+          <tbody id="liveRows"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section id="v-set" class="advw hide">
+      <div class="panel">
+        <h3>Settings</h3>
+        <p class="hint" style="margin-bottom:16px">
+          Bank details here are what customers see at checkout. The sync key is not
+          editable from the web — it lives in <span class="num">private/config.php</span>.
+        </p>
+        <div id="setFields"></div>
+        <button class="btn btn-primary" style="margin-top:16px" onclick="saveSettings()">Save settings</button>
+      </div>
+    </section>
+  </div>
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="assets/js/api.js"></script>
+<script>
+const TABS = [
+  ['over',  'Overview',  loadOverview],
+  ['pay',   'Payments',  loadPayments],
+  ['cust',  'Customers', loadCustomers],
+  ['plans', 'Bundles',   loadPlans],
+  ['live',  'Live',      loadLive],
+  ['set',   'Settings',  loadSettings],
+];
+let PLANS = [];
+
+document.addEventListener('DOMContentLoaded', async () => {
+  try {
+    const me = await API.get('api/admin.php?action=me');
+    API.setCsrf(me.csrf);
+    if (me.authenticated) { enter(me.admin); }
+  } catch (err) {
+    toast('Cannot reach the server', true);
+  }
+});
+
+async function doLogin(e) {
+  e.preventDefault();
+  try {
+    const res = await API.post('api/admin.php?action=login', {
+      email: document.getElementById('a-email').value.trim(),
+      password: document.getElementById('a-pass').value,
+    });
+    enter(res.admin);
+  } catch (err) {
+    toast(err.message, true);
+  }
+  return false;
+}
+
+function enter(admin) {
+  document.getElementById('gate').classList.add('hide');
+  document.getElementById('app').classList.remove('hide');
+  document.getElementById('admNav').innerHTML =
+    `<span class="hint" style="margin-right:12px">${esc(admin.email)}</span>
+     <button class="btn btn-ghost btn-sm" onclick="doLogout()">Sign out</button>`;
+
+  document.getElementById('admTabs').innerHTML = TABS.map(([id, label], i) =>
+    `<button class="tab ${i === 0 ? 'on' : ''}" id="tab-${id}" onclick="showTab('${id}')">${label}</button>`
+  ).join('');
+
+  showTab('over');
+}
+
+function showTab(id) {
+  TABS.forEach(([t]) => {
+    document.getElementById('tab-' + t).classList.toggle('on', t === id);
+    document.getElementById('v-' + t).classList.toggle('hide', t !== id);
+  });
+  const entry = TABS.find(([t]) => t === id);
+  if (entry) { entry[2](); }
+}
+
+async function doLogout() {
+  try { await API.post('api/admin.php?action=logout', {}); } catch (err) { /* going anyway */ }
+  location.reload();
+}
+
+/* ---------------------------------------------------------- overview */
+
+async function loadOverview() {
+  try {
+    const { stats } = await API.get('api/admin.php?action=overview');
+    const cards = [
+      ['Customers', stats.customers],
+      ['Active bundles', stats.active_subs],
+      ['Online now', stats.online_now],
+      ['Waiting approval', stats.pending_payments],
+      ['Today', ngn(stats.revenue_today)],
+      ['This month', ngn(stats.revenue_month)],
+      ['Not yet on router', stats.awaiting_sync],
+      ['Sharing flags', stats.tether_flags],
+    ];
+    document.getElementById('statGrid').innerHTML = cards.map(([lbl, val]) =>
+      `<div class="stat"><div class="lbl">${lbl}</div><div class="val num">${val}</div></div>`).join('');
+
+    const { log } = await API.get('api/admin.php?action=sync_log');
+    document.getElementById('logRows').innerHTML = log.length ? log.map(r => `
+      <tr><td class="hint num">${esc(r.created_at)}</td>
+          <td>${esc(r.action)}</td>
+          <td class="hint">${esc(r.result)}</td></tr>`).join('')
+      : `<tr><td colspan="3" class="empty">The router has not called in yet.</td></tr>`;
+  } catch (err) { toast(err.message, true); }
+}
+
+/* ---------------------------------------------------------- payments */
+
+async function loadPayments() {
+  try {
+    const { transactions } = await API.get('api/admin.php?action=transactions&status=pending');
+    document.getElementById('payCount').textContent = transactions.length;
+
+    document.getElementById('payRows').innerHTML = transactions.length ? transactions.map(t => `
+      <tr>
+        <td class="num">${esc(t.reference)}</td>
+        <td>${esc(t.phone)}<div class="hint">${esc(t.full_name || '')} ${t.flat_no ? '· ' + esc(t.flat_no) : ''}</div></td>
+        <td>${esc(t.plan_name || '—')}</td>
+        <td class="num">${ngn(t.amount_naira)}</td>
+        <td class="hint">${esc(String(t.method).replace('_', ' '))}</td>
+        <td>${t.proof_path
+              ? `<a class="copy" href="api/proof.php?id=${t.id}" target="_blank" rel="noopener">View</a>`
+              : (t.tx_hash ? `<span class="pill dim">hash</span>` : `<span class="hint">none</span>`)}</td>
+        <td class="hint num">${esc(t.created_at)}</td>
+        <td style="white-space:nowrap">
+          <button class="btn btn-beam btn-sm mini" onclick="approve(${t.id})">Approve</button>
+          <button class="btn btn-ghost btn-sm mini" onclick="reject(${t.id})">Reject</button>
+        </td>
+      </tr>`).join('')
+      : `<tr><td colspan="8" class="empty">Nothing waiting. Good.</td></tr>`;
+
+    const all = await API.get('api/admin.php?action=transactions');
+    const pill = s => s === 'success' ? 'ok' : (s === 'pending' ? 'warn' : 'bad');
+    document.getElementById('payAllRows').innerHTML = all.transactions.slice(0, 60).map(t => `
+      <tr><td class="num">${esc(t.reference)}</td>
+          <td>${esc(t.phone)}</td>
+          <td class="num">${ngn(t.amount_naira)}</td>
+          <td><span class="pill ${pill(t.status)}">${esc(t.status)}</span></td>
+          <td class="hint num">${esc(t.created_at)}</td></tr>`).join('');
+  } catch (err) { toast(err.message, true); }
+}
+
+async function approve(id) {
+  if (!confirm('Confirm the money landed and switch this bundle on?')) { return; }
+  try {
+    const res = await API.post('api/admin.php?action=approve', { id });
+    toast(res.message);
+    loadPayments();
+  } catch (err) { toast(err.message, true); }
+}
+
+async function reject(id) {
+  const note = prompt('Why is this being rejected?', 'no matching transfer found');
+  if (note === null) { return; }
+  try {
+    await API.post('api/admin.php?action=reject', { id, note });
+    toast('Rejected');
+    loadPayments();
+  } catch (err) { toast(err.message, true); }
+}
+
+/* --------------------------------------------------------- customers */
+
+async function loadCustomers() {
+  const q = document.getElementById('custSearch').value.trim();
+  try {
+    const { customers } = await API.get('api/admin.php?action=customers&q=' + encodeURIComponent(q));
+    document.getElementById('custRows').innerHTML = customers.length ? customers.map(c => `
+      <tr>
+        <td class="num">${esc(c.phone)}</td>
+        <td>${esc(c.full_name || '—')}</td>
+        <td class="hint">${esc(c.type)}${c.flat_no ? ' · ' + esc(c.flat_no) : ''}</td>
+        <td>${esc(c.current_plan || '—')}</td>
+        <td class="hint num">${esc(c.expires_at || '—')}</td>
+        <td>
+          <input class="mini" style="width:64px;padding:6px 8px;border-radius:8px;background:rgba(10,20,48,.7);border:1px solid var(--line-2);color:var(--cream)"
+                 type="number" min="1" max="16" placeholder="plan"
+                 value="${c.device_limit ?? ''}"
+                 onchange="setDevices(${c.id}, this.value)">
+          <div class="hint" style="font-size:11px">${c.device_count} seen</div>
+        </td>
+        <td><span class="pill ${c.status === 'active' ? 'ok' : 'bad'}">${esc(c.status)}</span></td>
+        <td>
+          <button class="btn btn-ghost btn-sm mini" onclick="toggleBan(${c.id}, '${c.status}')">
+            ${c.status === 'active' ? 'Suspend' : 'Restore'}
+          </button>
+        </td>
+      </tr>`).join('')
+      : `<tr><td colspan="8" class="empty">No customers found.</td></tr>`;
+  } catch (err) { toast(err.message, true); }
+}
+
+async function setDevices(id, value) {
+  try {
+    await API.post('api/admin.php?action=customer_update', { id, device_limit: value === '' ? null : value });
+    toast(value === '' ? 'Back to the plan default' : `Allowed ${value} device${value > 1 ? 's' : ''}`);
+    loadCustomers();
+  } catch (err) { toast(err.message, true); }
+}
+
+async function toggleBan(id, status) {
+  const next = status === 'active' ? 'suspended' : 'active';
+  if (next === 'suspended' && !confirm('Suspend this customer? They drop offline within a minute.')) { return; }
+  try {
+    await API.post('api/admin.php?action=customer_update', { id, status: next });
+    toast(next === 'suspended' ? 'Suspended' : 'Restored');
+    loadCustomers();
+  } catch (err) { toast(err.message, true); }
+}
+
+/* ------------------------------------------------------------- plans */
+
+const gbText = mb => mb === null ? 'unlimited' : (mb >= 1024 ? (mb / 1024) + ' GB' : mb + ' MB');
+
+async function loadPlans() {
+  try {
+    const res = await API.get('api/admin.php?action=plans');
+    PLANS = res.plans;
+    renderPlanRows();
+  } catch (err) { toast(err.message, true); }
+}
+
+function cell(plan, field, type = 'text', width = '84px') {
+  return `<input data-id="${plan.id}" data-f="${field}" type="${type}"
+            value="${esc(plan[field] ?? '')}"
+            style="width:${width};padding:7px 9px;border-radius:8px;background:rgba(10,20,48,.7);
+                   border:1px solid var(--line-2);color:var(--cream);font-size:13px">`;
+}
+
+function renderPlanRows() {
+  document.getElementById('planRows').innerHTML = PLANS.map(p => `
+    <tr data-row="${p.id}">
+      <td>${cell(p, 'name', 'text', '140px')}</td>
+      <td>
+        <select data-id="${p.id}" data-f="audience"
+          style="padding:7px 9px;border-radius:8px;background:rgba(10,20,48,.7);border:1px solid var(--line-2);color:var(--cream);font-size:13px">
+          <option value="compound" ${p.audience === 'compound' ? 'selected' : ''}>Compound</option>
+          <option value="visitor"  ${p.audience === 'visitor'  ? 'selected' : ''}>Visitor</option>
+        </select>
+      </td>
+      <td>${cell(p, 'price_naira', 'number')}</td>
+      <td><input data-id="${p.id}" data-f="data_mb" value="${p.data_mb === null ? 'unlimited' : p.data_mb}"
+             title="Megabytes, or the word unlimited. '5 GB' also works."
+             style="width:92px;padding:7px 9px;border-radius:8px;background:rgba(10,20,48,.7);border:1px solid var(--line-2);color:var(--cream);font-size:13px"></td>
+      <td>${cell(p, 'speed_down_mbps', 'number', '68px')}</td>
+      <td>${cell(p, 'speed_up_mbps', 'number', '68px')}</td>
+      <td>${cell(p, 'validity_hours', 'number', '72px')}</td>
+      <td>${cell(p, 'max_devices', 'number', '62px')}</td>
+      <td>${cell(p, 'tier', 'number', '54px')}</td>
+      <td>
+        <input type="checkbox" data-id="${p.id}" data-f="active" ${Number(p.active) ? 'checked' : ''}>
+      </td>
+      <td><button class="btn btn-beam btn-sm mini" onclick="savePlan(${p.id})">Save</button></td>
+    </tr>`).join('');
+}
+
+function collectPlan(id) {
+  const out = { id };
+  document.querySelectorAll(`[data-id="${id}"]`).forEach(el => {
+    out[el.dataset.f] = el.type === 'checkbox' ? (el.checked ? 1 : 0) : el.value;
+  });
+  const original = PLANS.find(p => p.id === id) || {};
+  out.subtitle = original.subtitle || '';
+  out.featured = original.featured || 0;
+  out.sort_order = original.sort_order || 0;
+  return out;
+}
+
+async function savePlan(id) {
+  try {
+    await API.post('api/admin.php?action=plan_save', collectPlan(id));
+    toast('Saved — anyone on this bundle gets the new limits within a minute');
+    loadPlans();
+  } catch (err) { toast(err.message, true); }
+}
+
+async function newPlan() {
+  const name = prompt('Name for the new bundle?');
+  if (!name) { return; }
+  try {
+    await API.post('api/admin.php?action=plan_save', {
+      name, audience: 'compound', price_naira: 1000, data_mb: 1024,
+      speed_down_mbps: 10, speed_up_mbps: 3, validity_hours: 24,
+      max_devices: 1, tier: 2, active: 0,
+    });
+    toast('Created — it stays hidden until you tick Live');
+    loadPlans();
+  } catch (err) { toast(err.message, true); }
+}
+
+/* -------------------------------------------------------------- live */
+
+async function loadLive() {
+  try {
+    const { sessions, tether_grace } = await API.get('api/admin.php?action=sessions');
+    document.getElementById('liveRows').innerHTML = sessions.length ? sessions.map(s => {
+      const sharing = Number(s.tethered_hits) > tether_grace;
+      return `
+      <tr>
+        <td class="num">${esc(s.phone || s.username)}<div class="hint">${esc(s.full_name || '')}</div></td>
+        <td class="num hint">${esc(s.mac || '—')}</td>
+        <td class="num hint">${esc(s.ip || '—')}</td>
+        <td class="num">${Number(s.used_mb).toFixed(0)} MB</td>
+        <td class="hint num">${esc(s.last_seen)}</td>
+        <td>${sharing
+              ? `<span class="pill bad">sharing · ${s.tethered_hits}</span>`
+              : (Number(s.tethered_hits) ? `<span class="pill warn">${s.tethered_hits}</span>` : '<span class="pill ok">clean</span>')}</td>
+        <td></td>
+      </tr>`;
+    }).join('') : `<tr><td colspan="7" class="empty">Nobody online in the last 15 minutes.</td></tr>`;
+  } catch (err) { toast(err.message, true); }
+}
+
+/* ---------------------------------------------------------- settings */
+
+const SETTING_LABELS = {
+  business_name: 'Business name',
+  support_phone: 'Support phone',
+  support_whatsapp: 'WhatsApp number (with 234)',
+  bank_name: 'Bank name',
+  bank_account_name: 'Account name',
+  bank_account_no: 'Account number',
+  bank_note: 'Note shown at checkout',
+  ngn_per_usdt: 'Naira per USDT',
+  wallet_bsc: 'USDT wallet — BSC',
+  wallet_tron: 'USDT wallet — TRON',
+  usdt_confirmations: 'USDT confirmations required',
+  tether_policy: 'Sharing policy (flag / block)',
+  tether_grace_hits: 'Sharing tolerance (minutes)',
+  live_count_floor: 'Homepage "online now" floor',
+  opay_enabled: 'OPay enabled (1 / 0)',
+};
+
+async function loadSettings() {
+  try {
+    const { settings } = await API.get('api/admin.php?action=settings');
+    document.getElementById('setFields').innerHTML = Object.entries(SETTING_LABELS).map(([k, label]) => `
+      <div class="field">
+        <label for="set-${k}">${label}</label>
+        <input id="set-${k}" data-k="${k}" value="${esc(settings[k] ?? '')}">
+      </div>`).join('');
+  } catch (err) { toast(err.message, true); }
+}
+
+async function saveSettings() {
+  const settings = {};
+  document.querySelectorAll('#setFields [data-k]').forEach(el => { settings[el.dataset.k] = el.value; });
+  try {
+    await API.post('api/admin.php?action=setting_save', { settings });
+    toast('Settings saved');
+  } catch (err) { toast(err.message, true); }
+}
+</script>
+</body>
+</html>

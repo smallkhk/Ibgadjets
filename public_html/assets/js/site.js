@@ -1,0 +1,303 @@
+/* =====================================================================
+   Homepage: plans, auth, checkout.
+   ===================================================================== */
+
+let PLANS = [];
+let NOTES = {};
+let SETTINGS = {};
+let AUD = 'compound';
+let ME = null;
+let CHOSEN = null;
+let ORDER = null;          // the pending transaction returned by purchase.php
+let AUTH_MODE = 'signup';
+
+/* ------------------------------------------------------------- boot */
+
+document.addEventListener('DOMContentLoaded', async () => {
+  document.getElementById('year').textContent = new Date().getFullYear();
+
+  try {
+    const me = await API.get('api/auth.php?action=me');
+    API.setCsrf(me.csrf);
+    ME = me.customer;
+    paintNav();
+  } catch (err) {
+    console.warn('session check failed', err);
+  }
+
+  try {
+    const data = await API.get('api/plans.php');
+    PLANS = data.plans || [];
+    NOTES = data.notes || {};
+    SETTINGS = data.settings || {};
+    paintFacts(data.live_count);
+    paintSettings();
+    renderPlans();
+  } catch (err) {
+    document.getElementById('planGrid').innerHTML =
+      `<p class="empty">Could not load the bundles. ${esc(err.message)}</p>`;
+  }
+});
+
+function paintNav() {
+  const cta = document.getElementById('navCta');
+  if (ME) {
+    cta.innerHTML = `
+      <a class="btn btn-ghost btn-sm" href="dashboard.html">My account</a>
+      <button class="btn btn-primary btn-sm" onclick="scrollToPlans()">Buy data</button>`;
+  } else {
+    cta.innerHTML = `
+      <button class="btn btn-ghost btn-sm" onclick="openAuth('login')">Log in</button>
+      <button class="btn btn-primary btn-sm" onclick="openAuth('signup')">Get connected</button>`;
+  }
+}
+
+function paintFacts(live) {
+  document.getElementById('liveCount').textContent = live ?? '—';
+
+  const speeds = PLANS.map(p => parseInt(p.speed, 10)).filter(Boolean);
+  const prices = PLANS.map(p => p.price).filter(Boolean);
+  document.getElementById('topSpeed').textContent = speeds.length ? Math.max(...speeds) + ' Mbps' : '—';
+  document.getElementById('fromPrice').textContent = prices.length ? ngn(Math.min(...prices)) : '—';
+  document.getElementById('footStatus').textContent = 'Dish up · ' + (live ?? 0) + ' online';
+}
+
+function paintSettings() {
+  const wa = SETTINGS.support_whatsapp || '';
+  document.getElementById('supPhone').textContent = SETTINGS.support_phone || '—';
+  document.getElementById('supWa').textContent = wa || '—';
+  if (wa) {
+    document.getElementById('supWaBtn').href = 'https://wa.me/' + wa;
+    document.getElementById('footWhatsapp').href = 'https://wa.me/' + wa;
+  }
+}
+
+/* ------------------------------------------------------------ plans */
+
+function setAud(a) {
+  AUD = a;
+  document.getElementById('tab-compound').classList.toggle('on', a === 'compound');
+  document.getElementById('tab-visitor').classList.toggle('on', a === 'visitor');
+  renderPlans();
+}
+
+function renderPlans() {
+  document.getElementById('audNote').textContent = NOTES[AUD] || '';
+
+  const list = PLANS.filter(p => p.aud === AUD);
+  const grid = document.getElementById('planGrid');
+
+  if (!list.length) {
+    grid.innerHTML = '<p class="empty">No bundles here yet.</p>';
+    return;
+  }
+
+  grid.innerHTML = list.map(p => `
+    <article class="plan ${p.featured ? 'featured' : ''}">
+      ${p.featured ? '<span class="plan-flag">Most bought</span>' : ''}
+      <div class="plan-top">
+        <div>
+          <h3>${esc(p.name)}</h3>
+          <p class="sub">${esc(p.sub)}</p>
+        </div>
+        <div class="bars" aria-hidden="true">${bars(p.tier)}</div>
+      </div>
+      <div class="price num">${ngn(p.price)}</div>
+      <div class="per">per ${esc(p.valid)}</div>
+      <ul>
+        <li>${tickSvg}<span><strong>${esc(p.data)}</strong> of data</span></li>
+        <li>${tickSvg}<span>Up to <strong>${esc(p.speed)}</strong></span></li>
+        <li>${tickSvg}<span>Valid ${esc(p.valid)}</span></li>
+        <li>${tickSvg}<span>${esc(p.devices)}</span></li>
+      </ul>
+      <button class="btn ${p.featured ? 'btn-primary' : 'btn-ghost'} btn-block" onclick="buy(${p.id})">
+        Buy ${esc(p.name)}
+      </button>
+    </article>
+  `).join('');
+}
+
+function scrollToPlans() {
+  document.getElementById('plans').scrollIntoView({ behavior: 'smooth' });
+}
+
+/* ------------------------------------------------------------- auth */
+
+function openAuth(mode) {
+  AUTH_MODE = mode;
+  const signup = mode === 'signup';
+
+  document.getElementById('authTitle').textContent = signup ? 'Create your account' : 'Welcome back';
+  document.getElementById('authSub').textContent = signup ? 'Takes about a minute.' : 'Your phone number and password.';
+  document.getElementById('authBtn').textContent = signup ? 'Create account' : 'Log in';
+  document.getElementById('signupFields').classList.toggle('hide', !signup);
+  document.getElementById('f-pass').autocomplete = signup ? 'new-password' : 'current-password';
+
+  document.getElementById('authSwap').innerHTML = signup
+    ? `Already have an account? <a href="#" onclick="openAuth('login');return false" style="color:var(--beam)">Log in</a>`
+    : `New here? <a href="#" onclick="openAuth('signup');return false" style="color:var(--beam)">Create an account</a>`;
+
+  toggleFlat();
+  openOv('ov-auth');
+  setTimeout(() => document.getElementById('f-phone').focus(), 80);
+}
+
+function toggleFlat() {
+  const isCompound = document.getElementById('f-type').value === 'compound';
+  document.getElementById('flatField').classList.toggle('hide', !isCompound);
+}
+
+async function submitAuth(event) {
+  event.preventDefault();
+  const btn = document.getElementById('authBtn');
+  btn.disabled = true;
+
+  const payload = {
+    action: AUTH_MODE,
+    phone: document.getElementById('f-phone').value.trim(),
+    password: document.getElementById('f-pass').value,
+  };
+  if (AUTH_MODE === 'signup') {
+    payload.full_name = document.getElementById('f-name').value.trim();
+    payload.type = document.getElementById('f-type').value;
+    payload.flat_no = document.getElementById('f-flat').value.trim();
+  }
+
+  try {
+    const res = await API.post('api/auth.php?action=' + AUTH_MODE, payload);
+    ME = res.customer;
+    paintNav();
+    closeAll();
+    toast(AUTH_MODE === 'signup' ? 'Account created — welcome' : 'Logged in');
+
+    // Came here from a plan button? Carry straight on to checkout.
+    if (CHOSEN) { openCheckout(); }
+  } catch (err) {
+    toast(err.message, true);
+  } finally {
+    btn.disabled = false;
+  }
+  return false;
+}
+
+/* --------------------------------------------------------- checkout */
+
+function buy(planId) {
+  CHOSEN = PLANS.find(p => p.id === planId);
+  if (!CHOSEN) { return; }
+
+  if (!ME) {
+    openAuth('signup');
+    toast('Create an account first — it takes a minute');
+    return;
+  }
+  openCheckout();
+}
+
+function openCheckout() {
+  ORDER = null;
+  document.getElementById('buyStep1').classList.remove('hide');
+  document.getElementById('buyStep2').classList.add('hide');
+  document.getElementById('buySub').textContent = CHOSEN.name;
+  document.getElementById('sumName').textContent = CHOSEN.name;
+  document.getElementById('sumPrice').textContent = ngn(CHOSEN.price);
+  document.getElementById('sumDetail').textContent =
+    `${CHOSEN.data} · ${CHOSEN.speed} · ${CHOSEN.valid} · ${CHOSEN.devices}`;
+  document.getElementById('sumTotal').textContent = ngn(CHOSEN.price);
+  openOv('ov-buy');
+}
+
+document.addEventListener('click', (e) => {
+  const opt = e.target.closest('.pay-opt');
+  if (!opt) { return; }
+  document.querySelectorAll('.pay-opt').forEach(o => o.classList.remove('on'));
+  opt.classList.add('on');
+  opt.querySelector('input').checked = true;
+});
+
+function chosenMethod() {
+  const on = document.querySelector('.pay-opt.on');
+  return on ? on.dataset.method : 'bank_transfer';
+}
+
+async function startPurchase() {
+  const btn = document.getElementById('buyGo');
+  btn.disabled = true;
+
+  try {
+    const res = await API.post('api/purchase.php', {
+      plan_id: CHOSEN.id,
+      method: chosenMethod(),
+    });
+
+    if (res.settled) {                       // wallet payment
+      closeAll();
+      toast(res.message);
+      return;
+    }
+
+    ORDER = res;
+    document.getElementById('buyStep1').classList.add('hide');
+    document.getElementById('buyStep2').classList.remove('hide');
+
+    const isBank = res.method === 'bank_transfer';
+    document.getElementById('payBank').classList.toggle('hide', !isBank);
+    document.getElementById('proofBox').classList.toggle('hide', !isBank);
+    document.getElementById('payUsdt').classList.toggle('hide', isBank);
+
+    if (isBank) {
+      document.getElementById('bkBank').textContent = res.bank.bank_name;
+      document.getElementById('bkName').textContent = res.bank.account_name;
+      document.getElementById('bkNo').textContent = res.bank.account_no;
+      document.getElementById('bkAmt').textContent = res.amount_text;
+      document.getElementById('bkRef').textContent = res.reference;
+    } else {
+      document.getElementById('usChain').textContent = res.usdt.chain;
+      document.getElementById('usAmt').textContent = res.usdt.amount + ' USDT';
+      document.getElementById('usAddr').textContent = res.usdt.address;
+    }
+  } catch (err) {
+    toast(err.message, true);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function copyRef() {
+  if (ORDER) { copyText(ORDER.reference, 'Reference copied'); }
+}
+
+async function uploadProof() {
+  const file = document.getElementById('f-proof').files[0];
+  if (!file) { toast('Choose the receipt screenshot first', true); return; }
+  if (!ORDER) { return; }
+
+  const form = new FormData();
+  form.append('reference', ORDER.reference);
+  form.append('proof', file);
+
+  try {
+    const res = await API.upload('api/payments.php?action=proof', form);
+    closeAll();
+    toast(res.message);
+  } catch (err) {
+    toast(err.message, true);
+  }
+}
+
+async function submitHash() {
+  const hash = document.getElementById('f-hash').value.trim();
+  if (!hash) { toast('Paste the transaction hash', true); return; }
+  if (!ORDER) { return; }
+
+  try {
+    const res = await API.post('api/payments.php?action=usdt', {
+      reference: ORDER.reference,
+      tx_hash: hash,
+    });
+    closeAll();
+    toast(res.message);
+  } catch (err) {
+    toast(err.message, true);
+  }
+}
