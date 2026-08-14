@@ -15,6 +15,10 @@
 declare(strict_types=1);
 require __DIR__ . '/../../private/bootstrap.php';
 
+/** Settings the panel may write but must never read back. */
+const SECRET_SETTINGS = ['opay_secret_key', 'opay_public_key'];
+const SECRET_MASK     = '••••••••  (unchanged)';
+
 $action = (string) input('action', 'me');
 
 // Login is the only action that runs without a session.
@@ -301,7 +305,17 @@ case 'device_block':
 // Settings
 // =====================================================================
 case 'settings':
-    ok(['settings' => settings_all(true)]);
+    // Secrets are writable but never readable back. The panel shows a
+    // placeholder; leaving that placeholder untouched on save keeps the
+    // stored value, so a secret cannot leak into a browser, a screenshot
+    // or a support session.
+    $out = settings_all(true);
+    foreach (SECRET_SETTINGS as $k) {
+        if (($out[$k] ?? '') !== '') {
+            $out[$k] = SECRET_MASK;
+        }
+    }
+    ok(['settings' => $out]);
 
 case 'setting_save':
     require_method('POST');
@@ -315,12 +329,17 @@ case 'setting_save':
         $pairs = [(string) want('k') => (string) input('v', '')];
     }
     foreach ($pairs as $k => $v) {
+        $k = substr((string) $k, 0, 60);
         if (in_array($k, $locked, true)) {
             continue;
         }
-        setting_set(substr((string) $k, 0, 60), (string) $v);
+        // The mask came from us, not the admin — it means "unchanged".
+        if ($v === SECRET_MASK && in_array($k, SECRET_SETTINGS, true)) {
+            continue;
+        }
+        setting_set($k, (string) $v);
     }
-    ok(['settings' => settings_all(true)]);
+    ok(['saved' => true]);
 
 case 'sync_log':
     ok(['log' => all('SELECT * FROM sync_log ORDER BY id DESC LIMIT 100')]);

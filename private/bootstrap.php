@@ -30,6 +30,7 @@ require __DIR__ . '/lib/http.php';
 require __DIR__ . '/lib/security.php';
 require __DIR__ . '/lib/settings.php';
 require __DIR__ . '/lib/billing.php';
+require __DIR__ . '/lib/opay.php';
 
 db_init($CONFIG['db']);
 

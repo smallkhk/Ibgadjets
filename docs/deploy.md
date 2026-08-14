@@ -220,3 +220,64 @@ the sync endpoint sends *remaining* data, not the plan allowance, exactly
 so a wipe restores balances rather than refilling them. If it happened,
 check that the router's usage POSTs were actually landing before the
 reset (Admin → Overview → Router conversation).
+
+---
+
+## OPay automated collection (optional)
+
+Two payment paths run side by side. Which one a customer gets depends on
+the price of what they are buying.
+
+- **At or above `opay_auto_threshold`** — OPay generates a bank account
+  for that single order. The customer transfers, OPay tells us, the
+  bundle activates itself. Costs a fee per transaction.
+- **Below it** — your own account, a reference in the narration, a
+  receipt, and an admin pressing Approve. Costs nothing.
+
+Set the threshold in **Admin → Settings**. `0` keeps everything manual,
+which is where you start.
+
+### Turning it on
+
+1. Get your Merchant ID, public key and secret key from the OPay merchant
+   dashboard.
+2. **Admin → Settings**: fill in `opay_merchant_id`, `opay_public_key`,
+   `opay_secret_key`, set `opay_enabled` to `1`, and leave `opay_live` at
+   `0` while you test against staging.
+3. Set your callback URL in the OPay dashboard to
+   `https://yourdomain/api/payments.php?action=opay_callback`
+4. Set `opay_auto_threshold` to the price above which a fee is worth
+   paying. ₦3,000 is a sensible starting point — it covers the visitor
+   bundles and Household Month while leaving the ₦500 and ₦1,500 sales
+   free to process.
+5. Test end to end on staging, then set `opay_live` to `1`.
+
+Secret and public keys are **write-only**: once saved the panel shows a
+mask, and saving without touching the field keeps the stored value. They
+never travel back to a browser.
+
+### The reconciliation cron — do not skip this
+
+Webhooks get lost. Add a second cron, every 5 minutes:
+
+```
+/usr/local/bin/php /home/USER/public_html/cron/opay-reconcile.php
+```
+
+It pulls the real status for any OPay payment still pending after a few
+minutes and activates anything OPay calls SUCCESS. Without it, a lost
+callback means a customer who paid and never got switched on — the worst
+failure this system has, and the one they tell their neighbours about.
+
+### Two different signatures
+
+Worth knowing before you debug anything:
+
+| Direction | Algorithm |
+|---|---|
+| Requests you send | HMAC-**SHA512** over the JSON body |
+| Callbacks you receive | HMAC-**SHA3-512** over a rebuilt field string |
+
+The callback signature arrives in a field named `sha512`, which is not
+SHA-512. `tests/test-opay.php` pins this behaviour so nobody later
+"corrects" it into silently rejecting every callback.

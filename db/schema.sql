@@ -140,6 +140,13 @@ CREATE TABLE transactions (
   method       ENUM('bank_transfer','opay','usdt_bsc','usdt_tron','wallet','manual') NOT NULL,
   reference    VARCHAR(120) NOT NULL,
   tx_hash      VARCHAR(160) NULL,
+  -- Set only on the automated path: OPay hands back a bank account
+  -- generated for this one order, so the money that lands in it can only
+  -- belong to this transaction.
+  opay_order_no  VARCHAR(64) NULL,
+  pay_account_no VARCHAR(20) NULL,
+  pay_bank_name  VARCHAR(80) NULL,
+  pay_expires_at DATETIME    NULL,
   proof_path   VARCHAR(255) NULL,
   status       ENUM('pending','success','failed') NOT NULL DEFAULT 'pending',
   approved_by  INT NULL,
@@ -148,6 +155,7 @@ CREATE TABLE transactions (
   created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY uq_tx_reference (reference),
   UNIQUE KEY uq_tx_hash (tx_hash),
+  UNIQUE KEY uq_tx_opay_order (opay_order_no),
   FOREIGN KEY (customer_id) REFERENCES customers(id),
   INDEX idx_tx_queue (status, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

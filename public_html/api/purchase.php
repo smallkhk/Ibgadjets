@@ -92,6 +92,56 @@ $response = [
 ];
 
 if ($method === 'bank_transfer') {
+
+    // ── Automated path ────────────────────────────────────────────────
+    // Above the threshold, OPay generates a bank account for this single
+    // order. Money landing in it can only belong to this transaction, so
+    // OPay can tell us which one paid and the bundle switches itself on.
+    // Nothing for the customer to type, nobody to wait for.
+    if (opay_use_auto($amount)) {
+        $created = opay_create_bank_transfer(
+            ['reference' => $reference, 'amount_naira' => $amount],
+            $customer,
+            $plan,
+            rtrim((string) $CONFIG['site_url'], '/') . '/api/payments.php?action=opay_callback'
+        );
+
+        if ($created['ok']) {
+            $acct = $created['account'];
+
+            q('UPDATE transactions
+                  SET method = ?, opay_order_no = ?, pay_account_no = ?,
+                      pay_bank_name = ?, pay_expires_at = ?
+                WHERE id = ?',
+                ['opay', $acct['order_no'] ?: null, $acct['account_no'],
+                 $acct['bank_name'], $acct['expires_at'], $txId]);
+
+            $response['method']    = 'opay';
+            $response['automatic'] = true;
+            $response['bank'] = [
+                'bank_name'    => $acct['bank_name'],
+                'account_name' => $s['bank_account_name'],
+                'account_no'   => $acct['account_no'],
+                'note'         => 'This account number is for this payment only.',
+            ];
+            $response['expires_at']   = $acct['expires_at'];
+            $response['instructions'] = "Transfer exactly {$response['amount_text']} to the account below. "
+                . 'It is generated for this purchase only, so your bundle switches on by itself — '
+                . 'no receipt to upload, no waiting.';
+
+            ok($response);
+        }
+
+        // OPay unreachable or refused. Fall through to the manual path
+        // rather than blocking a sale — the customer still gets to pay.
+        q('INSERT INTO sync_log (action, payload, result) VALUES (?,?,?)',
+            ['opay_fallback', $reference, substr($created['message'] ?: 'create failed', 0, 200)]);
+    }
+
+    // ── Manual path ───────────────────────────────────────────────────
+    // Your own account, a reference in the narration, a receipt, and an
+    // admin pressing Approve. Costs nothing per sale.
+    $response['automatic'] = false;
     $response['bank'] = [
         'bank_name'    => $s['bank_name'],
         'account_name' => $s['bank_account_name'],

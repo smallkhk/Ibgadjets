@@ -91,26 +91,107 @@ switch ($action) {
         ok(['transaction' => $tx]);
 
     // -----------------------------------------------------------------
-    // OPay callback. Stubbed until the merchant account is approved —
-    // the signature check goes here and nothing activates without it.
+    // OPay callback — money landed in a generated account.
+    //
+    // Nothing here trusts the caller. The signature has to verify against
+    // our secret, the reference has to be one of ours, and the amount has
+    // to match to the kobo before a single byte of internet is handed out.
     // -----------------------------------------------------------------
     case 'opay_callback':
         require_method('POST');
-        q('INSERT INTO sync_log (action, payload, result) VALUES (?,?,?)',
-            ['opay_callback', substr(file_get_contents('php://input') ?: '', 0, 2000), 'received, not yet enabled']);
-
-        if (setting_int('opay_enabled', 0) !== 1) {
-            json_out(['ok' => false, 'error' => 'OPay not enabled'], 503);
-        }
-        // TODO on merchant approval:
-        //   1. verify the HMAC signature against the OPay secret
-        //   2. match reference -> transactions.reference
-        //   3. confirm amount matches to the kobo
-        //   4. activate_subscription()
-        json_out(['ok' => false, 'error' => 'Not implemented'], 501);
+        opay_handle_callback();
 
     default:
         fail('Unknown action', 404);
+}
+
+
+function opay_handle_callback(): never
+{
+    $raw = file_get_contents('php://input') ?: '';
+    $in  = json_decode($raw, true);
+
+    q('INSERT INTO sync_log (action, payload, result) VALUES (?,?,?)',
+        ['opay_callback', substr($raw, 0, 1500), 'received']);
+
+    if (!is_array($in)) {
+        json_out(['ok' => false, 'error' => 'Bad payload'], 400);
+    }
+    if (!opay_enabled()) {
+        json_out(['ok' => false, 'error' => 'OPay not enabled'], 503);
+    }
+
+    // OPay wraps the transaction in "payload" and puts the signature
+    // beside it in a field called "sha512" — which is HMAC-SHA3-512, not
+    // SHA-512. See private/lib/opay.php.
+    $payload   = is_array($in['payload'] ?? null) ? $in['payload'] : $in;
+    $signature = (string) ($in['sha512'] ?? $in['sha512Value'] ?? '');
+
+    if (!opay_verify_callback($payload, $signature)) {
+        q('INSERT INTO sync_log (action, payload, result) VALUES (?,?,?)',
+            ['opay_callback', substr($raw, 0, 500), 'SIGNATURE MISMATCH — rejected']);
+        json_out(['ok' => false, 'error' => 'Bad signature'], 401);
+    }
+
+    $reference = opay_field($payload, 'Reference');
+    $status    = strtoupper(opay_field($payload, 'Status'));
+    $koboRaw   = opay_field($payload, 'Amount');
+
+    if ($reference === '') {
+        json_out(['ok' => false, 'error' => 'No reference'], 400);
+    }
+
+    $tx = one('SELECT * FROM transactions WHERE reference = ?', [$reference]);
+    if (!$tx) {
+        opay_log('callback', $reference, 'unknown reference');
+        json_out(['ok' => false, 'error' => 'Unknown reference'], 404);
+    }
+
+    // Already done. OPay retries, so saying yes again must be harmless.
+    if ($tx['status'] === 'success') {
+        json_out(['ok' => true, 'message' => 'Already processed']);
+    }
+
+    if ($status !== 'SUCCESS') {
+        if (in_array($status, ['FAIL', 'CLOSE'], true)) {
+            q("UPDATE transactions SET status = 'failed', note = ? WHERE id = ?",
+                ['OPay reported ' . $status, $tx['id']]);
+        }
+        json_out(['ok' => true, 'message' => 'Recorded ' . $status]);
+    }
+
+    // Amount arrives in kobo. Compare in kobo so nothing rounds away.
+    $expectedKobo = (int) round(((float) $tx['amount_naira']) * 100);
+    $paidKobo     = (int) round((float) $koboRaw);
+
+    if ($paidKobo < $expectedKobo) {
+        q("UPDATE transactions SET note = ? WHERE id = ?",
+            [sprintf('Underpaid: got %d kobo, expected %d', $paidKobo, $expectedKobo), $tx['id']]);
+        opay_log('callback', $reference, 'underpaid, left for an admin');
+        json_out(['ok' => true, 'message' => 'Amount mismatch, held for review']);
+    }
+
+    $planId = (int) $tx['plan_id'];
+    if (!$planId) {
+        opay_log('callback', $reference, 'no plan on transaction');
+        json_out(['ok' => true, 'message' => 'No plan, held for review']);
+    }
+
+    tx_begin();
+    try {
+        q("UPDATE transactions
+              SET status = 'success', approved_at = NOW(), note = 'auto-confirmed by OPay'
+            WHERE id = ?", [$tx['id']]);
+        $subId = activate_subscription((int) $tx['customer_id'], $planId, (int) $tx['id']);
+        tx_commit();
+    } catch (Throwable $ex) {
+        tx_rollback();
+        opay_log('callback', $reference, 'activation failed: ' . $ex->getMessage());
+        json_out(['ok' => false, 'error' => 'Activation failed'], 500);
+    }
+
+    opay_log('callback', $reference, "activated sub {$subId}");
+    json_out(['ok' => true, 'message' => 'Activated']);
 }
 
 

@@ -374,6 +374,17 @@
     <!-- step 2: pay -->
     <div id="buyStep2" class="hide">
       <div id="payBank" class="hide">
+        <!-- shown only when OPay generated an account for this one payment -->
+        <div id="autoNotice" class="hide" style="background:rgba(75,232,168,.10);border:1px solid rgba(75,232,168,.35);border-radius:var(--r-m);padding:14px 16px;margin-bottom:16px">
+          <div style="display:flex;align-items:center;gap:9px;font-weight:600;font-size:14.5px;color:var(--mint)">
+            <span class="dot-live"></span> Switches on by itself
+          </div>
+          <p class="hint" style="margin-top:6px">
+            This account number belongs to this purchase only. Transfer the exact amount and
+            your bundle goes live on its own — nothing to upload, nobody to wait for.
+          </p>
+        </div>
+
         <div class="bank-card">
           <div class="bank-row"><span class="k">Bank</span><span class="v" id="bkBank">—</span></div>
           <div class="bank-row"><span class="k">Account name</span><span class="v" id="bkName">—</span></div>
@@ -382,11 +393,18 @@
             <span class="v num" id="bkNo">—</span>
           </div>
           <div class="bank-row"><span class="k">Amount</span><span class="v num" id="bkAmt">—</span></div>
+          <div class="bank-row hide" id="bkExpiryRow">
+            <span class="k">Pay before</span><span class="v num" id="bkExpiry">—</span>
+          </div>
         </div>
 
-        <p class="hint" style="text-align:center">Put this in the transfer narration</p>
-        <div class="ref" id="bkRef">—</div>
-        <button class="btn btn-ghost btn-sm btn-block" onclick="copyRef()">Copy reference</button>
+        <button class="btn btn-beam btn-sm btn-block" style="margin-bottom:14px" onclick="copyAccount()">Copy account number</button>
+
+        <div id="manualRef">
+          <p class="hint" style="text-align:center">Put this in the transfer narration</p>
+          <div class="ref" id="bkRef">—</div>
+          <button class="btn btn-ghost btn-sm btn-block" onclick="copyRef()">Copy reference</button>
+        </div>
       </div>
 
       <div id="payUsdt" class="hide">
@@ -413,7 +431,7 @@
         <button class="btn btn-primary btn-block" onclick="uploadProof()">Upload receipt</button>
       </div>
 
-      <p class="hint" style="text-align:center;margin-top:16px">
+      <p class="hint" style="text-align:center;margin-top:16px" id="buyFoot">
         Once we confirm, your bundle goes live within a minute.
         <a href="dashboard.html" style="color:var(--beam)">Check your dashboard</a>.
       </p>

@@ -240,10 +240,26 @@ async function startPurchase() {
     document.getElementById('buyStep1').classList.add('hide');
     document.getElementById('buyStep2').classList.remove('hide');
 
-    const isBank = res.method === 'bank_transfer';
+    // Two shapes of bank transfer. The automatic one has an account
+    // generated for this single payment, so there is no reference to
+    // quote and no receipt to upload — OPay tells us when it lands.
+    const isBank = res.method === 'bank_transfer' || res.method === 'opay';
+    const isAuto = res.automatic === true;
+
     document.getElementById('payBank').classList.toggle('hide', !isBank);
-    document.getElementById('proofBox').classList.toggle('hide', !isBank);
     document.getElementById('payUsdt').classList.toggle('hide', isBank);
+    document.getElementById('proofBox').classList.toggle('hide', !isBank || isAuto);
+    document.getElementById('autoNotice').classList.toggle('hide', !isAuto);
+    document.getElementById('manualRef').classList.toggle('hide', isAuto);
+    document.getElementById('bkExpiryRow').classList.toggle('hide', !res.expires_at);
+
+    // Nobody confirms the automatic path — saying "once we confirm" there
+    // would tell the customer to wait for something that never happens.
+    document.getElementById('buyFoot').innerHTML = isAuto
+      ? 'Your bundle goes live moments after the transfer lands. '
+        + '<a href="dashboard.html" style="color:var(--beam)">Check your dashboard</a>.'
+      : 'Once we confirm, your bundle goes live within a minute. '
+        + '<a href="dashboard.html" style="color:var(--beam)">Check your dashboard</a>.';
 
     if (isBank) {
       document.getElementById('bkBank').textContent = res.bank.bank_name;
@@ -251,6 +267,9 @@ async function startPurchase() {
       document.getElementById('bkNo').textContent = res.bank.account_no;
       document.getElementById('bkAmt').textContent = res.amount_text;
       document.getElementById('bkRef').textContent = res.reference;
+      if (res.expires_at) {
+        document.getElementById('bkExpiry').textContent = res.expires_at;
+      }
     } else {
       document.getElementById('usChain').textContent = res.usdt.chain;
       document.getElementById('usAmt').textContent = res.usdt.amount + ' USDT';
@@ -265,6 +284,10 @@ async function startPurchase() {
 
 function copyRef() {
   if (ORDER) { copyText(ORDER.reference, 'Reference copied'); }
+}
+
+function copyAccount() {
+  if (ORDER?.bank) { copyText(ORDER.bank.account_no, 'Account number copied'); }
 }
 
 async function uploadProof() {

@@ -470,6 +470,23 @@ const SETTING_LABELS = {
   tether_grace_hits: 'Sharing tolerance (minutes)',
   live_count_floor: 'Homepage "online now" floor',
   opay_enabled: 'OPay enabled (1 / 0)',
+  opay_live: 'OPay production keys (1) or staging (0)',
+  opay_merchant_id: 'OPay Merchant ID',
+  opay_public_key: 'OPay public key',
+  opay_secret_key: 'OPay secret key',
+  opay_auto_threshold: 'Auto-account from ₦ (0 = all manual)',
+};
+
+// Explains the one setting that costs money if you get it wrong.
+const SETTING_HINTS = {
+  opay_auto_threshold:
+    'Bundles at or above this price get a bank account generated per payment and ' +
+    'activate by themselves — OPay charges a fee for that. Cheaper bundles stay on ' +
+    'the free receipt-and-approve path. Set 0 to keep everything manual.',
+  opay_secret_key: 'Write-only. Saved but never shown again.',
+  opay_public_key: 'Write-only. Saved but never shown again.',
+  tether_grace_hits:
+    'Roughly minutes of detected hotspot sharing before the Live tab flags the customer.',
 };
 
 async function loadSettings() {
@@ -479,6 +496,7 @@ async function loadSettings() {
       <div class="field">
         <label for="set-${k}">${label}</label>
         <input id="set-${k}" data-k="${k}" value="${esc(settings[k] ?? '')}">
+        ${SETTING_HINTS[k] ? `<div class="hint">${esc(SETTING_HINTS[k])}</div>` : ''}
       </div>`).join('');
   } catch (err) { toast(err.message, true); }
 }

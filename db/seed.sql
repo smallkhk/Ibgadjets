@@ -44,9 +44,17 @@ INSERT INTO settings (k, v) VALUES
   ('wallet_tron',        'TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE'),
   ('usdt_confirmations', '3'),
 
+  -- OPay automated collection. Off until the merchant account is live.
   ('opay_enabled',       '0'),
+  ('opay_live',          '0'),     -- 0 = staging endpoints, 1 = production
   ('opay_merchant_id',   ''),
   ('opay_public_key',    ''),
+  ('opay_secret_key',    ''),
+  ('opay_create_uses_public_key', '0'),
+  -- Bundles at or above this price get a generated account number and
+  -- activate by themselves. Below it, the free manual receipt path.
+  -- 0 = everything manual.
+  ('opay_auto_threshold','0'),
 
   -- anti-sharing
   ('tether_policy',      'flag'),   -- flag | block
