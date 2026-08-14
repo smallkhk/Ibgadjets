@@ -106,8 +106,14 @@ add name="ibg-sync" dont-require-permissions=no owner=admin \
             :foreach a in=[/ip hotspot active find where user=$hname] do={
                 /ip hotspot active remove $a
             }
-            /ip hotspot cookie remove [find user=$hname]
             /ip hotspot user remove $h
+            # The mac-cookie is deliberately LEFT in place. A cookie on
+            # its own grants nothing — it maps a device to a username
+            # that has to exist — so keeping it is safe, and it means a
+            # customer who tops up is back online without typing their
+            # password again. Deleting it here would force a fresh login
+            # after every single bundle, which is the one thing this
+            # design exists to avoid.
             :log info ("ibg-sync: revoked " . $hname)
         }
     }

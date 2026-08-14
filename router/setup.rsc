@@ -86,8 +86,12 @@ add name=ibg-hs hotspot-address=10.5.50.1 dns-name=wifi.ibgadgets.ng \
 add name=ibg address-pool=hs-pool interface=bridge-hotspot profile=ibg-hs \
     addresses-per-mac=2 idle-timeout=5m keepalive-timeout=2m disabled=no
 
+# Long on purpose. The cookie is convenience, not access control — it
+# maps a device to a username that must still exist on the router, and
+# expiry is enforced by the account leaving the sync list. A short
+# timeout would only mean loyal customers retyping their password.
 /ip hotspot profile
-set [find name=ibg-hs] mac-cookie-timeout=7d
+set [find name=ibg-hs] mac-cookie-timeout=60d
 
 # The stock trial account gives away free internet. Remove it.
 /ip hotspot user profile
