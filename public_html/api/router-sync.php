@@ -168,9 +168,19 @@ function receive_report(): never
                     [$usedMb, $customerId]);
 
                 if ($mac) {
+                    // customer_id is reassigned on conflict, not left alone.
+                    // A MAC is unique to a physical device, and devices
+                    // change hands — someone sells a phone, a relative
+                    // signs in on a spare handset. The router has just
+                    // authenticated this MAC as this customer, so this
+                    // customer owns it now. Without the reassignment the
+                    // phone stays welded to its first owner and the new
+                    // one never sees it on their dashboard.
                     q('INSERT INTO devices (customer_id, mac, last_seen)
                        VALUES (?, ?, NOW())
-                       ON DUPLICATE KEY UPDATE last_seen = NOW()',
+                       ON DUPLICATE KEY UPDATE
+                            customer_id = VALUES(customer_id),
+                            last_seen   = NOW()',
                         [$customerId, $mac]);
                 }
             }

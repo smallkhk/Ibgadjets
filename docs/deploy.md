@@ -5,6 +5,48 @@ first — the router script needs a live endpoint to talk to.
 
 ---
 
+## The short version
+
+```bash
+bash build-deploy.sh          # -> dist/ibgadgets-deploy.zip + ibgadgets-router.zip
+```
+
+Then, in order:
+
+| # | Do this | Where |
+|---|---|---|
+| 1 | Buy hosting + domain, point the domain at it | Hostinger |
+| 2 | Upload `private/` and `public_html/` from the zip | File Manager |
+| 3 | Create a MySQL database and user | cPanel → MySQL Databases |
+| 4 | Import `db/schema.sql`, then `db/seed.sql` | phpMyAdmin |
+| 5 | `cp private/config.example.php private/config.php`, fill it in | Terminal |
+| 6 | Generate the sync key, paste it into config **and** keep a copy | Terminal |
+| 7 | `php private/make-admin.php you@… 'password' owner` | Terminal |
+| 8 | `chmod 750 private/uploads` | Terminal |
+| 9 | Turn on free SSL for the domain | cPanel → SSL |
+| 10 | Add the hourly cron for `expire.php` | cPanel → Cron Jobs |
+| 11 | Log in at `/admin.html`, set your **real bank details** | Admin → Settings |
+| 12 | Run the smoke test (below) | Terminal or your laptop |
+
+Then the router — see part 2. Everything is explained in full underneath.
+
+### Prove it works before you tell anyone
+
+```bash
+BASE=https://yourdomain \
+SYNC_KEY=<the key from config.php> \
+ADMIN_EMAIL=you@example.com ADMIN_PASS='your password' \
+  bash tests/e2e.sh
+```
+
+30 checks: signup, purchase, approval, the router seeing the customer with
+the right limits, remaining-data arithmetic, usage flowing back, a router
+reset not erasing spent data, the device-allowance override, suspension.
+All 30 should pass. If signup reports a rate limit, that is the limiter
+working — wait ten minutes or clear the `rate_limits` table.
+
+---
+
 ## 1. The site (Hostinger cPanel)
 
 ### Files

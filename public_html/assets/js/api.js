@@ -37,6 +37,10 @@ const API = (() => {
       throw new Error('The server sent something unexpected (' + res.status + ').');
     }
 
+    // The server rotates the CSRF token whenever it regenerates the
+    // session. Pick the new one up so the next call is not rejected.
+    if (data && typeof data.csrf === "string") { csrf = data.csrf; }
+
     if (!res.ok || data.ok === false) {
       const err = new Error(data.error || 'Something went wrong');
       err.status = res.status;

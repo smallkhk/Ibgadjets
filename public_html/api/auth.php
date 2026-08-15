@@ -86,7 +86,10 @@ switch ($action) {
         csrf_check();
         unset($_SESSION['customer_id']);
         session_regenerate_id(true);
-        ok();
+        // Hand back the token for the new session. A page that logs out
+        // and then tries to log back in without reloading would otherwise
+        // be holding a token the server no longer accepts.
+        ok(['csrf' => csrf_token()]);
 
     // -----------------------------------------------------------------
     case 'me':
