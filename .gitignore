@@ -17,3 +17,6 @@ Thumbs.db
 
 # Build output
 dist/
+
+# Generated captive-portal previews
+router/preview/
