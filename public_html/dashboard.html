@@ -78,6 +78,53 @@
       </table></div>
     </div>
 
+    <!-- account security -->
+    <div class="panel" style="margin-top:18px">
+      <h3>Your password</h3>
+
+      <!-- Shown only to accounts with no security question — the ones
+           created before recovery existed. Without this they have no way
+           back in and every forgotten password is a phone call. -->
+      <div id="secWarn" class="hide" style="margin-bottom:18px">
+        <p class="hint" style="color:var(--warn)">
+          You have no security question set. If you forget your password there is
+          no way back into this account. Set one now — it takes ten seconds.
+        </p>
+      </div>
+
+      <form id="secForm" data-submit="save-security">
+        <div class="field">
+          <label for="d-secq">Security question</label>
+          <select id="d-secq"></select>
+        </div>
+        <div class="field">
+          <label for="d-seca">Your answer</label>
+          <input id="d-seca" autocomplete="off" placeholder="Ibadan" required>
+          <div class="hint">Capital letters and spaces do not matter.</div>
+        </div>
+        <div class="field hide" id="secPassField">
+          <label for="d-secpass">Your password</label>
+          <input id="d-secpass" type="password" autocomplete="current-password" placeholder="Confirm it is you">
+          <div class="hint">Needed because you already have a question set.</div>
+        </div>
+        <button class="btn btn-ghost" type="submit">Save security question</button>
+      </form>
+
+      <hr style="border:0;border-top:1px solid rgba(255,255,255,.1);margin:22px 0">
+
+      <form id="pwForm" data-submit="change-password">
+        <div class="field">
+          <label for="d-oldpass">Current password</label>
+          <input id="d-oldpass" type="password" autocomplete="current-password" required>
+        </div>
+        <div class="field">
+          <label for="d-newpass">New password</label>
+          <input id="d-newpass" type="password" autocomplete="new-password" placeholder="At least 6 characters" required>
+        </div>
+        <button class="btn btn-ghost" type="submit">Change password</button>
+      </form>
+    </div>
+
     <!-- history -->
     <div class="panel" style="margin-top:18px">
       <h3>Payment history</h3>

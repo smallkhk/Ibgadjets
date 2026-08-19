@@ -39,6 +39,7 @@ async function load() {
   paintCurrent(DASH.current);
   paintDevices(DASH.devices, DASH.device_count);
   paintHistory(DASH.history);
+  paintSecurity();
 }
 
 function paintCurrent(cur) {
@@ -133,6 +134,65 @@ async function logout() {
   location.href = 'index.html';
 }
 
+/* ------------------------------------------------- account security */
+
+async function paintSecurity() {
+  const c = DASH?.customer;
+  if (!c) { return; }
+
+  // Accounts made before recovery existed have no question. They are the
+  // ones who most need the prompt, and the only ones who see it.
+  const has = c.has_security_question;
+  document.getElementById('secWarn').classList.toggle('hide', has);
+  document.getElementById('secPassField').classList.toggle('hide', !has);
+  document.getElementById('d-secpass').required = has;
+
+  try {
+    const res = await API.get('api/auth.php?action=security_questions');
+    document.getElementById('d-secq').innerHTML =
+      res.questions.map(q => `<option>${esc(q)}</option>`).join('');
+  } catch (err) {
+    toast('Could not load the security questions', true);
+  }
+}
+
+async function saveSecurity() {
+  const payload = {
+    security_question: document.getElementById('d-secq').value,
+    security_answer:   document.getElementById('d-seca').value.trim(),
+  };
+  const pass = document.getElementById('d-secpass').value;
+  if (pass) { payload.current_password = pass; }
+
+  try {
+    await API.post('api/auth.php?action=set_security', payload);
+    toast('Security question saved');
+    document.getElementById('d-seca').value = '';
+    document.getElementById('d-secpass').value = '';
+    // It exists now, so the warning goes and the password field appears.
+    DASH.customer.has_security_question = true;
+    paintSecurity();
+  } catch (err) {
+    toast(err.message, true);
+  }
+}
+
+async function changePassword() {
+  try {
+    await API.post('api/auth.php?action=change_password', {
+      current_password: document.getElementById('d-oldpass').value,
+      password:         document.getElementById('d-newpass').value,
+    });
+    document.getElementById('d-oldpass').value = '';
+    document.getElementById('d-newpass').value = '';
+    toast('Password changed');
+  } catch (err) {
+    toast(err.message, true);
+  }
+}
+
 /* ---- wiring: no executable code in the markup, CSP is script-src 'self' */
-on('logout',    () => logout());
-on('copy-wifi', () => copyWifi());
+on('logout',          () => logout());
+on('copy-wifi',       () => copyWifi());
+on('save-security',   () => saveSecurity());
+on('change-password', () => changePassword());

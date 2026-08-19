@@ -1,5 +1,6 @@
 const TABS = [
   ['over',  'Overview',  loadOverview],
+  ['rep',   'Reports',   loadReports],
   ['pay',   'Payments',  loadPayments],
   ['cust',  'Customers', loadCustomers],
   ['plans', 'Bundles',   loadPlans],
@@ -82,6 +83,65 @@ async function loadOverview() {
           <td>${esc(r.action)}</td>
           <td class="hint">${esc(r.result)}</td></tr>`).join('')
       : `<tr><td colspan="3" class="empty">The router has not called in yet.</td></tr>`;
+  } catch (err) { toast(err.message, true); }
+}
+
+/* ----------------------------------------------------------- reports */
+
+async function loadReports() {
+  const days = Number(document.getElementById('repDays').value) || 30;
+  try {
+    const r = await API.get('api/admin.php?action=reports&days=' + days);
+
+    const cards = [
+      ['Revenue', ngn(r.totals.revenue)],
+      ['Today', ngn(r.totals.revenue_today)],
+      ['Payments', r.totals.payments],
+      ['Paying customers', r.totals.buyers],
+      ['Data sold', r.totals.data_sold_gb + ' GB'],
+      ['Rejected', r.totals.rejected],
+    ];
+    document.getElementById('repStats').innerHTML = cards.map(([lbl, val]) =>
+      `<div class="stat"><div class="lbl">${lbl}</div><div class="val num">${val}</div></div>`).join('');
+
+    // One helper for every table here: same shape, same empty state, so
+    // a report with no data reads as "nothing yet" rather than as a bug.
+    const fill = (id, rows, cols, empty) => {
+      document.getElementById(id).innerHTML = rows.length
+        ? rows.map(row => '<tr>' + cols.map(c => c(row)).join('') + '</tr>').join('')
+        : `<tr><td colspan="${cols.length}" class="empty">${empty}</td></tr>`;
+    };
+
+    fill('repDaily', r.daily, [
+      d => `<td class="num">${esc(d.day)}</td>`,
+      d => `<td class="num">${d.payments}</td>`,
+      d => `<td class="num">${ngn(d.revenue)}</td>`,
+    ], 'No payments in this period.');
+
+    fill('repPlans', r.by_plan, [
+      p => `<td>${esc(p.plan)}</td>`,
+      p => `<td class="num">${p.sold}</td>`,
+      p => `<td class="num">${ngn(p.revenue)}</td>`,
+    ], 'Nothing sold yet.');
+
+    fill('repAudience', r.by_audience, [
+      a => `<td>${a.type === 'compound' ? 'Compound' : 'Visitors'}</td>`,
+      a => `<td class="num">${a.payments}</td>`,
+      a => `<td class="num">${ngn(a.revenue)}</td>`,
+    ], 'Nothing sold yet.');
+
+    fill('repTop', r.top_customers, [
+      c => `<td>${esc(c.full_name || c.phone)}<div class="hint num">${esc(c.phone)}${
+              c.flat_no ? ' · Flat ' + esc(c.flat_no) : ''}</div></td>`,
+      c => `<td class="num">${c.payments}</td>`,
+      c => `<td class="num">${ngn(c.spent)}</td>`,
+    ], 'Nobody has bought anything yet.');
+
+    fill('repMethod', r.by_method, [
+      m => `<td>${esc(m.method.replace(/_/g, ' '))}</td>`,
+      m => `<td class="num">${m.payments}</td>`,
+      m => `<td class="num">${ngn(m.revenue)}</td>`,
+    ], 'No payments in this period.');
   } catch (err) { toast(err.message, true); }
 }
 
@@ -360,6 +420,7 @@ on('save-settings',    () => saveSettings());
 on('new-plan',         () => newPlan());
 on('search-customers', () => loadCustomers());
 on('tab',              (el) => showTab(el.dataset.tab));
+on('report-days',      () => loadReports());
 on('approve',          (el) => approve(Number(el.dataset.id)));
 on('reject',           (el) => reject(Number(el.dataset.id)));
 on('save-plan',        (el) => savePlan(Number(el.dataset.id)));

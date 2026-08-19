@@ -72,6 +72,10 @@ ok([
         'wifi_username' => $c['router_username'],
         'wifi_password' => $c['router_password'],
         'device_limit'  => $c['device_limit'] === null ? null : (int) $c['device_limit'],
+        // Drives the "you cannot recover this account" prompt. The
+        // question text is not sent: someone glancing at a logged-in
+        // dashboard should not walk away with half the answer.
+        'has_security_question' => ($c['security_answer_hash'] ?? null) !== null,
     ],
     'current'      => $current,
     'devices'      => $devices,

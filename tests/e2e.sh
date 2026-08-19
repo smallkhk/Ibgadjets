@@ -47,7 +47,7 @@ CSRF=$(jq_get "$ME" csrf)
 
 SIGNUP=$(curl -s -b "$CJ" -c "$CJ" -X POST "$BASE/api/auth.php?action=signup" \
   -H "Content-Type: application/json" -H "X-CSRF-Token: $CSRF" \
-  -d "{\"phone\":\"$PHONE\",\"password\":\"hunter2222\",\"full_name\":\"E2E Tester\",\"type\":\"compound\",\"flat_no\":\"9Z\"}")
+  -d "{\"phone\":\"$PHONE\",\"password\":\"hunter2222\",\"full_name\":\"E2E Tester\",\"type\":\"compound\",\"flat_no\":\"9Z\",\"security_question\":\"What is the name of your home town?\",\"security_answer\":\"Ibadan\"}")
 if printf '%s' "$SIGNUP" | grep -q 'Too many attempts'; then
   printf '\n\033[33mStopped: the signup rate limiter is holding this IP.\033[0m\n'
   printf 'That is the limiter working, not a fault — it allows 5 signups per IP\n'
@@ -178,6 +178,55 @@ WRONG=$(curl -s -X POST "$BASE/api/auth.php?action=login" \
   -H "Content-Type: application/json" -H "X-CSRF-Token: $CSRF" \
   -d "{\"phone\":\"$PHONE\",\"password\":\"wrongwrong\"}")
 want "wrong password refused" "$(jq_get "$WRONG" ok)" "false"
+
+# -------------------------------------------------------------- recovery
+# There is no email and no SMS, so this is the ONLY route back into an
+# account. If it breaks, a forgotten password means a lost customer.
+say "Forgotten password recovery"
+
+QRES=$(curl -s -b "$CJ" -c "$CJ" -X POST "$BASE/api/auth.php?action=reset_question" \
+  -H "Content-Type: application/json" -H "X-CSRF-Token: $CSRF" \
+  -d "{\"phone\":\"$PHONE\"}")
+want "question comes back" "$(jq_get "$QRES" question)" "What is the name of your home town?"
+
+WRONGA=$(curl -s -b "$CJ" -c "$CJ" -X POST "$BASE/api/auth.php?action=reset_password" \
+  -H "Content-Type: application/json" -H "X-CSRF-Token: $CSRF" \
+  -d "{\"phone\":\"$PHONE\",\"answer\":\"Lagos\",\"password\":\"brandnew123\"}")
+want "wrong answer refused" "$(jq_get "$WRONGA" ok)" "false"
+
+# Deliberately sloppy: different case, padding, trailing punctuation.
+# Someone typing their home town on a phone six months later will not
+# reproduce their original keystrokes, and being turned away for a
+# capital letter is the same as having no recovery at all.
+RESET=$(curl -s -b "$CJ" -c "$CJ" -X POST "$BASE/api/auth.php?action=reset_password" \
+  -H "Content-Type: application/json" -H "X-CSRF-Token: $CSRF" \
+  -d "{\"phone\":\"$PHONE\",\"answer\":\"  ibadan. \",\"password\":\"brandnew123\"}")
+want "sloppily typed answer accepted" "$(jq_get "$RESET" ok)" "true"
+
+OLDPW=$(curl -s -X POST "$BASE/api/auth.php?action=login" \
+  -H "Content-Type: application/json" -H "X-CSRF-Token: $CSRF" \
+  -d "{\"phone\":\"$PHONE\",\"password\":\"hunter2222\"}")
+want "old password stops working" "$(jq_get "$OLDPW" ok)" "false"
+
+NEWPW=$(curl -s -b "$CJ" -c "$CJ" -X POST "$BASE/api/auth.php?action=login" \
+  -H "Content-Type: application/json" -H "X-CSRF-Token: $CSRF" \
+  -d "{\"phone\":\"$PHONE\",\"password\":\"brandnew123\"}")
+want "new password works" "$(jq_get "$NEWPW" ok)" "true"
+
+# --------------------------------------------------------------- reports
+say "Admin revenue reports"
+REP=$(curl -s -b "$AJ" "$BASE/api/admin.php?action=reports&days=30")
+want "reports respond" "$(jq_get "$REP" ok)" "true"
+# One approved payment happened earlier in this run, so revenue must not
+# be zero — a report that always returns zero would pass a weaker check.
+REVENUE=$(printf '%s' "$REP" | php -r '$j=json_decode(stream_get_contents(STDIN),true); echo ($j["totals"]["revenue"]??0) > 0 ? "yes":"no";')
+want "approved payment shows as revenue" "$REVENUE" "yes"
+# The pending payment from earlier must NOT be counted.
+PENDING_EXCLUDED=$(printf '%s' "$REP" | php -r '
+$j=json_decode(stream_get_contents(STDIN),true);
+$paid = 0; foreach(($j["by_plan"]??[]) as $p){ $paid += (int)$p["sold"]; }
+echo $paid === (int)($j["totals"]["payments"]??-1) ? "yes":"no";')
+want "plan breakdown matches the total" "$PENDING_EXCLUDED" "yes"
 
 # --------------------------------------------------------------------- end
 printf '\n\033[1m%d passed, %d failed\033[0m\n' "$PASS" "$FAIL"

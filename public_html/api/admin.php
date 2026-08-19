@@ -73,6 +73,93 @@ case 'overview':
     ]]);
 
 // =====================================================================
+// Reports
+//
+// Everything here counts only status='success' transactions. A pending
+// payment is somebody's claim that they sent money; counting it as
+// revenue means the numbers say you earned more than reached your bank.
+//
+// The window is a whole number of days ending today, so "30 days"
+// includes today's takings so far rather than stopping at midnight.
+// =====================================================================
+case 'reports':
+    $days = max(1, min(365, (int) input('days', 30)));
+
+    // Interpolated, not bound: MySQL will not accept a placeholder
+    // inside INTERVAL. Safe because it has been through (int) and is
+    // clamped to a range above.
+    $since = "(CURDATE() - INTERVAL " . ($days - 1) . " DAY)";
+
+    ok([
+        'days' => $days,
+
+        'totals' => [
+            'revenue'       => (float) scalar("SELECT COALESCE(SUM(amount_naira),0) FROM transactions WHERE status='success' AND created_at >= $since"),
+            'payments'      => (int)   scalar("SELECT COUNT(*) FROM transactions WHERE status='success' AND created_at >= $since"),
+            'buyers'        => (int)   scalar("SELECT COUNT(DISTINCT customer_id) FROM transactions WHERE status='success' AND created_at >= $since"),
+            'revenue_today' => (float) scalar("SELECT COALESCE(SUM(amount_naira),0) FROM transactions WHERE status='success' AND DATE(created_at)=CURDATE()"),
+            // What people did not pay for. A pile of rejected payments is
+            // either fraud or a confusing payment page — both worth seeing.
+            'rejected'      => (int)   scalar("SELECT COUNT(*) FROM transactions WHERE status='failed' AND created_at >= $since"),
+            // Sold, not used. This is what you owe Starlink against what
+            // you charged for, and the gap is your actual margin.
+            'data_sold_gb'  => round((float) scalar(
+                "SELECT COALESCE(SUM(p.data_mb),0)/1024
+                   FROM transactions t JOIN plans p ON p.id = t.plan_id
+                  WHERE t.status='success' AND t.created_at >= $since"), 2),
+        ],
+
+        // One row per day, oldest first, with zero-revenue days present
+        // rather than missing — a chart with gaps in it lies about trend.
+        'daily' => all(
+            "SELECT DATE(created_at) AS day,
+                    SUM(amount_naira) AS revenue,
+                    COUNT(*)          AS payments
+               FROM transactions
+              WHERE status='success' AND created_at >= $since
+              GROUP BY DATE(created_at)
+              ORDER BY day"),
+
+        'by_plan' => all(
+            "SELECT COALESCE(p.name,'(deleted plan)') AS plan,
+                    COUNT(*)              AS sold,
+                    SUM(t.amount_naira)   AS revenue
+               FROM transactions t
+               LEFT JOIN plans p ON p.id = t.plan_id
+              WHERE t.status='success' AND t.created_at >= $since
+              GROUP BY t.plan_id, p.name
+              ORDER BY revenue DESC"),
+
+        'by_method' => all(
+            "SELECT method, COUNT(*) AS payments, SUM(amount_naira) AS revenue
+               FROM transactions
+              WHERE status='success' AND created_at >= $since
+              GROUP BY method
+              ORDER BY revenue DESC"),
+
+        'top_customers' => all(
+            "SELECT c.phone, c.full_name, c.type, c.flat_no,
+                    COUNT(*)            AS payments,
+                    SUM(t.amount_naira) AS spent
+               FROM transactions t
+               JOIN customers c ON c.id = t.customer_id
+              WHERE t.status='success' AND t.created_at >= $since
+              GROUP BY c.id, c.phone, c.full_name, c.type, c.flat_no
+              ORDER BY spent DESC
+              LIMIT 10"),
+
+        // Compound versus visitor. These are different businesses with
+        // different pricing, and knowing which one pays the bills tells
+        // you which one to grow.
+        'by_audience' => all(
+            "SELECT c.type, COUNT(*) AS payments, SUM(t.amount_naira) AS revenue
+               FROM transactions t
+               JOIN customers c ON c.id = t.customer_id
+              WHERE t.status='success' AND t.created_at >= $since
+              GROUP BY c.type"),
+    ]);
+
+// =====================================================================
 // Customers
 // =====================================================================
 case 'customers':

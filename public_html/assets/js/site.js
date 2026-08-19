@@ -137,6 +137,14 @@ function openAuth(mode) {
     ? `Already have an account? <a href="#" data-action="auth-login" style="color:var(--beam)">Log in</a>`
     : `New here? <a href="#" data-action="auth-signup" style="color:var(--beam)">Create an account</a>`;
 
+  // Only offered on the login screen. On the signup screen it is noise,
+  // and worse, it invites people to "recover" an account they have not
+  // created yet.
+  document.getElementById('authForgot').innerHTML = signup
+    ? ''
+    : `<a href="#" data-action="forgot" style="color:var(--muted)">Forgot your password?</a>`;
+
+  if (signup) { loadSecurityQuestions(); }
   toggleFlat();
   openOv('ov-auth');
   setTimeout(() => document.getElementById('f-phone').focus(), 80);
@@ -160,6 +168,8 @@ async function submitAuth() {
     payload.full_name = document.getElementById('f-name').value.trim();
     payload.type = document.getElementById('f-type').value;
     payload.flat_no = document.getElementById('f-flat').value.trim();
+    payload.security_question = document.getElementById('f-secq').value;
+    payload.security_answer = document.getElementById('f-seca').value.trim();
   }
 
   try {
@@ -175,6 +185,67 @@ async function submitAuth() {
     toast(err.message, true);
   } finally {
     btn.disabled = false;
+  }
+}
+
+/* ------------------------------------------------ password recovery */
+
+let QUESTIONS_LOADED = false;
+
+async function loadSecurityQuestions() {
+  if (QUESTIONS_LOADED) { return; }
+  try {
+    const res = await API.get('api/auth.php?action=security_questions');
+    const sel = document.getElementById('f-secq');
+    sel.innerHTML = res.questions.map(q => `<option>${esc(q)}</option>`).join('');
+    QUESTIONS_LOADED = true;
+  } catch (err) {
+    // Not fatal on its own, but signup will be rejected without a valid
+    // question, so say so rather than letting them fill the form first.
+    toast('Could not load the security questions — reload the page', true);
+  }
+}
+
+function openForgot() {
+  document.getElementById('resetStep1').classList.remove('hide');
+  document.getElementById('resetStep2').classList.add('hide');
+  document.getElementById('r-phone').value = document.getElementById('f-phone').value.trim();
+  document.getElementById('r-answer').value = '';
+  document.getElementById('r-pass').value = '';
+  closeAll();
+  openOv('ov-reset');
+  setTimeout(() => document.getElementById('r-phone').focus(), 80);
+}
+
+async function resetLookup() {
+  const phone = document.getElementById('r-phone').value.trim();
+  try {
+    const res = await API.post('api/auth.php?action=reset_question', { phone });
+    document.getElementById('r-question').textContent = res.question;
+    document.getElementById('resetStep1').classList.add('hide');
+    document.getElementById('resetStep2').classList.remove('hide');
+    document.getElementById('resetSub').textContent = 'Answer it and pick a new password.';
+    setTimeout(() => document.getElementById('r-answer').focus(), 80);
+  } catch (err) {
+    toast(err.message, true);
+  }
+}
+
+async function resetFinish() {
+  try {
+    const res = await API.post('api/auth.php?action=reset_password', {
+      phone:    document.getElementById('r-phone').value.trim(),
+      answer:   document.getElementById('r-answer').value.trim(),
+      password: document.getElementById('r-pass').value,
+    });
+    // The server logs them in on success — they have just proved who
+    // they are, so sending them back to a login form would be rude.
+    ME = res.customer;
+    paintNav();
+    closeAll();
+    toast('Password changed — you are logged in');
+  } catch (err) {
+    toast(err.message, true);
   }
 }
 
@@ -344,3 +415,6 @@ on('upload-proof',   () => uploadProof());
 on('submit-hash',    () => submitHash());
 on('auth',           () => submitAuth());
 on('toggle-flat',    () => toggleFlat());
+on('forgot',         () => openForgot());
+on('reset-lookup',   () => resetLookup());
+on('reset-finish',   () => resetFinish());

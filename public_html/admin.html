@@ -61,6 +61,68 @@
       </div>
     </section>
 
+    <!-- REPORTS -->
+    <section id="v-rep" class="advw hide">
+      <div class="panel">
+        <h3>Money in</h3>
+        <p class="hint" style="margin-bottom:14px">
+          Only payments you actually approved are counted. Pending ones are
+          somebody's claim that they sent money, not money that arrived.
+        </p>
+        <div class="field" style="max-width:220px">
+          <label for="repDays">Period</label>
+          <select id="repDays" data-change="report-days">
+            <option value="7">Last 7 days</option>
+            <option value="30" selected>Last 30 days</option>
+            <option value="90">Last 90 days</option>
+            <option value="365">Last year</option>
+          </select>
+        </div>
+        <div class="grid-stats" id="repStats" style="margin-top:16px"></div>
+      </div>
+
+      <div class="panel" style="margin-top:20px">
+        <h3>Day by day</h3>
+        <div class="tbl-scroll"><table class="tbl">
+          <thead><tr><th>Day</th><th>Payments</th><th>Revenue</th></tr></thead>
+          <tbody id="repDaily"></tbody>
+        </table></div>
+      </div>
+
+      <div class="panel" style="margin-top:20px">
+        <h3>Which bundles sell</h3>
+        <div class="tbl-scroll"><table class="tbl">
+          <thead><tr><th>Bundle</th><th>Sold</th><th>Revenue</th></tr></thead>
+          <tbody id="repPlans"></tbody>
+        </table></div>
+      </div>
+
+      <div class="panel" style="margin-top:20px">
+        <h3>Compound vs visitors</h3>
+        <p class="hint" style="margin-bottom:14px">Two different businesses. This says which one is paying the bills.</p>
+        <div class="tbl-scroll"><table class="tbl">
+          <thead><tr><th>Who</th><th>Payments</th><th>Revenue</th></tr></thead>
+          <tbody id="repAudience"></tbody>
+        </table></div>
+      </div>
+
+      <div class="panel" style="margin-top:20px">
+        <h3>Best customers</h3>
+        <div class="tbl-scroll"><table class="tbl">
+          <thead><tr><th>Customer</th><th>Payments</th><th>Spent</th></tr></thead>
+          <tbody id="repTop"></tbody>
+        </table></div>
+      </div>
+
+      <div class="panel" style="margin-top:20px">
+        <h3>How they paid</h3>
+        <div class="tbl-scroll"><table class="tbl">
+          <thead><tr><th>Method</th><th>Payments</th><th>Revenue</th></tr></thead>
+          <tbody id="repMethod"></tbody>
+        </table></div>
+      </div>
+    </section>
+
     <!-- PAYMENTS -->
     <section id="v-pay" class="advw hide">
       <div class="panel">

@@ -318,6 +318,20 @@
             <input id="f-flat" name="flat_no" placeholder="4B">
           </div>
         </div>
+
+        <!-- There is no email and no SMS here, so this is the only way
+             back into an account after a forgotten password. Asked at
+             signup because nobody ever comes back to set it later. -->
+        <div class="field">
+          <label for="f-secq">Security question</label>
+          <select id="f-secq" name="security_question"></select>
+          <div class="hint">If you forget your password, this is how you get back in.</div>
+        </div>
+        <div class="field">
+          <label for="f-seca">Your answer</label>
+          <input id="f-seca" name="security_answer" autocomplete="off" placeholder="Ibadan">
+          <div class="hint">Capital letters and spaces do not matter.</div>
+        </div>
       </div>
 
       <div class="field">
@@ -327,6 +341,43 @@
 
       <button class="btn btn-primary btn-block" style="margin-top:10px" id="authBtn" type="submit">Create account</button>
       <p class="hint" style="text-align:center;margin-top:14px" id="authSwap"></p>
+      <p class="hint" style="text-align:center;margin-top:8px" id="authForgot"></p>
+    </form>
+  </div>
+</div>
+
+<!-- ═══════════════════════ FORGOT PASSWORD ═══════════════════════ -->
+<div class="overlay" id="ov-reset">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="resetTitle">
+    <div class="modal-head">
+      <div>
+        <h3 id="resetTitle">Forgot your password</h3>
+        <p class="hint" style="margin-top:5px" id="resetSub">Enter your phone number to see your security question.</p>
+      </div>
+      <button class="x" data-action="close" aria-label="Close">×</button>
+    </div>
+
+    <!-- Step 1: which account -->
+    <form id="resetStep1" data-submit="reset-lookup">
+      <div class="field">
+        <label for="r-phone">Phone number</label>
+        <input id="r-phone" name="phone" inputmode="tel" autocomplete="tel" placeholder="0803 111 2222" required>
+      </div>
+      <button class="btn btn-primary btn-block" style="margin-top:10px" type="submit">Continue</button>
+    </form>
+
+    <!-- Step 2: answer it and choose a new password -->
+    <form id="resetStep2" class="hide" data-submit="reset-finish">
+      <div class="field">
+        <label id="r-question">Your security question</label>
+        <input id="r-answer" name="answer" autocomplete="off" placeholder="Your answer" required>
+        <div class="hint">Capital letters and spaces do not matter.</div>
+      </div>
+      <div class="field">
+        <label for="r-pass">New password</label>
+        <input id="r-pass" name="password" type="password" autocomplete="new-password" placeholder="At least 6 characters" required>
+      </div>
+      <button class="btn btn-primary btn-block" style="margin-top:10px" type="submit">Set new password</button>
     </form>
   </div>
 </div>

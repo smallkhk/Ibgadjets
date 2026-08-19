@@ -23,6 +23,12 @@ CREATE TABLE customers (
   phone           VARCHAR(20)  NOT NULL UNIQUE,
   full_name       VARCHAR(120),
   password_hash   VARCHAR(255) NOT NULL,
+  -- Password recovery, with no email or SMS to send a code through. The
+  -- answer is hashed like a password because it grants the same access.
+  -- NULL on accounts created before this existed; those customers are
+  -- prompted to set one when they next open their dashboard.
+  security_question    VARCHAR(120) NULL,
+  security_answer_hash VARCHAR(255) NULL,
   type            ENUM('compound','visitor') NOT NULL DEFAULT 'compound',
   flat_no         VARCHAR(20)  NULL,
   wallet_naira    DECIMAL(10,2) NOT NULL DEFAULT 0,
