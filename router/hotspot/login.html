@@ -2,13 +2,26 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="pragma" content="no-cache">
+<meta http-equiv="expires" content="-1">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>IB Gadgets Telecom — Sign in</title>
 <!--
   MIKROTIK HOTSPOT LOGIN PAGE
   Upload to the router at /hotspot/login.html (Winbox → Files, or FTP).
-  100% offline: no CDN fonts, no external images, no external scripts.
-  Replace PORTAL_URL below with your real domain before uploading.
+
+  100% offline: no CDN fonts, no external images, no external stylesheets.
+  A customer who has not paid yet cannot reach the internet, so anything
+  this page has to fetch is a thing that will not load.
+
+  The only external file is /md5.js, which RouterOS already ships in the
+  hotspot folder. Do not delete it.
+
+  BEFORE UPLOADING, edit:
+    - the "Create account & buy data" link, to your real domain
+    - the support phone number at the bottom
+
+  Preview it without a router:  php router/preview-login.php
 -->
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -64,6 +77,40 @@ hr{border:0;border-top:1px solid rgba(255,255,255,.1);margin:22px 0}
 </style>
 </head>
 <body>
+
+$(if chap-id)
+<!--
+  CHAP login. The password is hashed in the browser and the plain one
+  never crosses the air.
+
+  This whole block only exists when the router actually offers CHAP, i.e.
+  when the hotspot profile has http-chap in login-by. That guard matters:
+  if CHAP is off, RouterOS leaves "$(chap-id)" in the page as literal
+  text, and any script testing it as a string would happily hash the
+  password with garbage and fail every login for reasons nothing reports.
+
+  The visible form is never touched. Its values are copied into this
+  hidden one, which is what submits — so the user's password stays
+  readable in the field if they come back to the page.
+-->
+<form name="sendin" action="$(link-login-only)" method="post" style="display:none">
+  <input type="hidden" name="username">
+  <input type="hidden" name="password">
+  <input type="hidden" name="dst" value="$(link-orig)">
+  <input type="hidden" name="popup" value="false">
+</form>
+<script type="text/javascript" src="/md5.js"></script>
+<script type="text/javascript">
+function doLogin() {
+  document.sendin.username.value = document.login.username.value;
+  document.sendin.password.value =
+      hexMD5('$(chap-id)' + document.login.password.value + '$(chap-challenge)');
+  document.sendin.submit();
+  return false;
+}
+</script>
+$(endif)
+
 <div class="box">
 
   <div class="brand">
@@ -80,20 +127,24 @@ hr{border:0;border-top:1px solid rgba(255,255,255,.1);margin:22px 0}
   <div class="ssid"><span class="dot"></span> Connected to IB Gadgets</div>
 
   <div class="card">
+
     $(if error)<div class="err">$(error)</div>$(endif)
 
     <h1>Sign in to browse</h1>
     <p class="sub">Use the phone number and password you signed up with.
        You only do this once on this device — after today it connects on its own.</p>
 
-    <form name="login" action="$(link-login-only)" method="post"
-          onsubmit="return doLogin()">
+    <form name="login" action="$(link-login-only)" method="post" $(if chap-id)onsubmit="return doLogin()"$(endif)>
       <input type="hidden" name="dst" value="$(link-orig)">
       <input type="hidden" name="popup" value="false">
 
       <label for="u">Phone number</label>
+      <!-- value="$(username)" keeps what they typed when a login is
+           rejected. Without it a wrong password wipes the field and they
+           key eleven digits again, on a phone, while annoyed. -->
       <input id="u" name="username" type="tel" inputmode="numeric"
-             placeholder="0803 000 0000" autocomplete="username" required>
+             value="$(username)" placeholder="0803 000 0000"
+             autocomplete="username" autofocus required>
 
       <label for="p">Password</label>
       <input id="p" name="password" type="password"
@@ -104,8 +155,8 @@ hr{border:0;border-top:1px solid rgba(255,255,255,.1);margin:22px 0}
 
     <hr>
 
-    <!-- Walled garden lets this through without a plan. Must match the
-         dst-host entries in router/setup.rsc. -->
+    <!-- Reachable without a plan because the walled garden allows it.
+         Must match the dst-host entries in router/setup.rsc. -->
     <a class="btn alt" href="http://ibgadgets.ng/?from=hotspot">Create account &amp; buy data</a>
 
     <p class="foot">
@@ -115,18 +166,5 @@ hr{border:0;border-top:1px solid rgba(255,255,255,.1);margin:22px 0}
   </div>
 </div>
 
-<script type="text/javascript" src="/md5.js"></script>
-<script type="text/javascript">
-// CHAP login — keeps the password off the wire.
-// Requires md5.js in the router's /hotspot folder (ships with RouterOS by default).
-function doLogin(){
-  var f = document.login;
-  if (typeof hexMD5 === 'function' && '$(chap-id)' !== '') {
-    f.password.value = hexMD5('$(chap-id)' + f.password.value + '$(chap-challenge)');
-  }
-  return true;
-}
-document.getElementById('u').focus();
-</script>
 </body>
 </html>

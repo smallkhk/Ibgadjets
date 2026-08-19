@@ -30,9 +30,18 @@ To look at the design without a router:
 php router/preview-login.php
 ```
 
-That writes two files into `router/preview/` — the normal page and the
-one shown after a wrong password. Open either in any browser. They carry
-an orange banner so nobody mistakes them for the real template.
+That writes three files into `router/preview/`:
+
+| File | State |
+|---|---|
+| `login-normal.html` | what a customer normally sees |
+| `login-error.html` | after a rejected login |
+| `login-nochap.html` | with CHAP off, to check the plain-post fallback |
+
+Open any in a browser. They carry an orange banner so nobody mistakes
+them for the real template. The script exits non-zero if it meets a
+router variable it does not know how to resolve, so a new one cannot
+silently reach a customer as literal text.
 
 **Upload `hotspot/login.html` to the Mikrotik. Never upload the previews**
 — their variables are already substituted, so the error box would never
