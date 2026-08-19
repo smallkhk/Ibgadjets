@@ -26,6 +26,7 @@ cp -r "$ROOT/private/lib"            "$STAGE/private/"
 cp    "$ROOT/private/bootstrap.php"  "$STAGE/private/"
 cp    "$ROOT/private/config.example.php" "$STAGE/private/"
 cp    "$ROOT/private/make-admin.php" "$STAGE/private/"
+cp    "$ROOT/private/init-config.php" "$STAGE/private/"
 cp    "$ROOT/private/.htaccess"      "$STAGE/private/"
 
 # Never ship secrets, receipts or preview leftovers.
@@ -142,12 +143,14 @@ echo "Built:"
 ls -lh "$OUT" | awk 'NR>1 {print "  " $9 "  " $5}'
 echo
 echo "Check nothing secret slipped in:"
-if unzip -l "$OUT/ibgadgets-deploy.zip" | grep -qE 'config\.php$'; then
+if unzip -l "$OUT/ibgadgets-deploy.zip" | grep -qE '(^|/)config\.php$'; then
   echo "  !! config.php IS IN THE PACKAGE — stop and investigate"; exit 1
 else
   echo "  ok  no config.php"
 fi
-if unzip -l "$OUT/ibgadgets-deploy.zip" | grep -qE 'uploads/.+'; then
+# .gitkeep is ours and deliberate; anything else under uploads/ is a
+# customer's receipt and must never leave the server.
+if unzip -l "$OUT/ibgadgets-deploy.zip" | grep -E 'uploads/.+' | grep -qv '\.gitkeep$'; then
   echo "  !! customer receipts are in the package — stop"; exit 1
 else
   echo "  ok  no receipts"
