@@ -217,11 +217,13 @@ add name="ibg-sync" dont-require-permissions=no owner=admin \
     :foreach h in=[/ip hotspot user find where comment=$mark] do={
         :local hname [/ip hotspot user get $h name]
         :if ([:typeof ($wanted->$hname)] = "nothing") do={
-            # Kick the live session first, otherwise they keep browsing
-            # on the connection they already hold.
-            :foreach a in=[/ip hotspot active find where user=$hname] do={
-                /ip hotspot active remove $a
-            }
+            # There is no /ip hotspot active remove here, and that is
+            # deliberate. On this board that single call panics the
+            # kernel and reboots the router — verified by hand, one
+            # command at a time: user remove is fine, active remove is
+            # not. Removing the account is enough on its own; the hotspot
+            # drops the session with it, and anything that somehow
+            # survives dies at the idle timeout.
             /ip hotspot user remove $h
             # The mac-cookie is deliberately LEFT in place. A cookie on
             # its own grants nothing — it maps a device to a username
@@ -237,12 +239,12 @@ add name="ibg-sync" dont-require-permissions=no owner=admin \
     # -----------------------------------------------------------------
     # 4. Blocked devices — one phone off, account untouched
     # -----------------------------------------------------------------
+    # Same story as above: no active remove. The ip-binding is what does
+    # the blocking, and it takes effect on the blocked device's next
+    # connection rather than instantly.
     /ip hotspot ip-binding remove [find comment="ibg-block"]
     :foreach m in=$blocked do={
         /ip hotspot ip-binding add mac-address=$m type=blocked comment="ibg-block"
-        :foreach a in=[/ip hotspot active find where mac-address=$m] do={
-            /ip hotspot active remove $a
-        }
     }
 
     # -----------------------------------------------------------------
