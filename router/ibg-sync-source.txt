@@ -127,7 +127,19 @@
     :local blocked ($doc->"blocked_macs")
     :local profiles ($doc->"profiles")
 
-    :local wanted [:toarray ""]
+    # A string, not an array, and deliberately so.
+    #
+    # This used to be [:toarray ""] with the username as the key. The
+    # username arrives from :deserialize as a NUM — RouterOS reads
+    # "08153329197" as a number, which is also why the leading zero
+    # disappears — and using a num as an array key panics this board.
+    # Every other shape of the same loop ran clean; only the array
+    # version brought the router down.
+    #
+    # Format is ",name,name,name," so a lookup can search for ",x," and
+    # never match a partial. Without the commas, 8153 would match
+    # 8153329197.
+    :local wanted ","
     :local applied ""
 
     # -----------------------------------------------------------------
@@ -174,7 +186,7 @@
         :local bytes 0
         :if ([:typeof $dmb] = "num") do={ :set bytes ($dmb * 1048576) }
 
-        :set ($wanted->$uname) true
+        :set wanted ($wanted . $uname . ",")
 
         :local found [/ip hotspot user find where name=$uname]
 
@@ -201,7 +213,7 @@
     # -----------------------------------------------------------------
     :foreach h in=[/ip hotspot user find where comment=$mark] do={
         :local hname [/ip hotspot user get $h name]
-        :if ([:typeof ($wanted->$hname)] = "nothing") do={
+        :if ([:typeof [:find $wanted ("," . $hname . ",")]] = "nothing") do={
             # There is no /ip hotspot active remove here, and that is
             # deliberate. On this board that single call panics the
             # kernel and reboots the router — verified by hand, one
