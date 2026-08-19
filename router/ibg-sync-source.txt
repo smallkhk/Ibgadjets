@@ -235,6 +235,33 @@
     }
 
     # -----------------------------------------------------------------
+    # 3b. Orphaned sessions
+    #
+    # A session outlives its account. Deleting a hotspot user does not
+    # end the session that user already holds, so anything that removed
+    # an account without kicking it first leaves someone browsing with no
+    # account at all — and the loop above cannot help, because it walks
+    # hotspot USERS and there is no longer a user to walk.
+    #
+    # That is not hypothetical: it is how a suspended customer stayed
+    # online on the live router. An earlier version of this script
+    # deleted accounts without kicking, and those sessions simply carried
+    # on, invisible to every later pass.
+    #
+    # So sweep the other way round: any active session whose username no
+    # longer exists as a hotspot user is stranded and gets cut. Accounts
+    # that still exist are left alone, including the hand-made ones this
+    # script does not own.
+    # -----------------------------------------------------------------
+    :foreach a in=[/ip hotspot active find] do={
+        :local aname [/ip hotspot active get $a user]
+        :if ([:len [/ip hotspot user find where name=$aname]] = 0) do={
+            /ip hotspot active remove $a
+            :log info ("ibg-sync: cut stranded session for " . $aname)
+        }
+    }
+
+    # -----------------------------------------------------------------
     # 4. Blocked devices — one phone off, account untouched
     # -----------------------------------------------------------------
     # The ip-binding stops the device reconnecting; the kick ends the
