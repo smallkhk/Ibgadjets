@@ -300,6 +300,55 @@ reset (Admin → Overview → Router conversation).
 
 ---
 
+## Updating with git (do this instead of re-uploading zips)
+
+The repository is laid out as `public_html/` + `private/`, but a
+Hostinger subdomain's document root is a folder like `~/ibphone` with
+`private/` beside it, so `git pull` alone cannot update the site — the
+files still have to be placed. `deploy-to.sh` does that placement and
+nothing else.
+
+### One-time setup
+
+```bash
+cd ~
+git clone -b claude/spec-review-qzdzep https://github.com/smallkhk/Ibgadjets.git src
+cd src
+bash deploy-to.sh ~/ibphone --dry-run    # look first
+bash deploy-to.sh ~/ibphone              # then apply
+```
+
+If the repository is private, git will ask for a password — GitHub no
+longer accepts your account password there. Create a fine-grained
+personal access token with read access to this repository
+(GitHub → Settings → Developer settings → Personal access tokens) and
+use it as the password, or clone with it inline:
+
+```bash
+git clone -b claude/spec-review-qzdzep \
+  https://YOUR_GITHUB_USERNAME:YOUR_TOKEN@github.com/smallkhk/Ibgadjets.git src
+```
+
+### Every update after that
+
+```bash
+cd ~/src && git pull && bash deploy-to.sh ~/ibphone
+```
+
+Then hard-refresh the browser (Ctrl+Shift+R) or you will be looking at
+cached JavaScript and think nothing changed.
+
+### What it will never overwrite
+
+- `private/config.php` — your database password and sync key
+- `private/uploads/` — customers' bank receipts
+
+Both are excluded deliberately, not by accident, and the script reports
+that it left them intact on every run. Losing the first takes the site
+down; losing the second loses your evidence that people paid.
+
+---
+
 ## OPay automated collection (optional)
 
 Two payment paths run side by side. Which one a customer gets depends on
