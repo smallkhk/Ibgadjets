@@ -290,11 +290,23 @@ add name="ibg-sync" dont-require-permissions=no owner=admin \
     # -----------------------------------------------------------------
     :local payload ("{\"applied\":[" . $applied . "],\"usage\":[" . $usage . "]}")
 
+    # output=none, NOT output=user as-value.
+    #
+    # Asking RouterOS to buffer the reply to a POST panics this board and
+    # reboots it. Verified by hand: the identical POST with output=none
+    # returns status finished, code 200, every time; with as-value the
+    # router goes down. The GET buffers fine — 40 in a row with flat
+    # memory — so it is the combination of POST and as-value, not fetch
+    # in general.
+    #
+    # Nothing reads the reply anyway. The server's answer to a report is
+    # an acknowledgement, and the next GET is what tells us the truth
+    # about state regardless.
     /tool fetch url=$ibgUrl \
         http-method=post \
         http-header-field=("X-Sync-Key: " . $ibgKey . ",Content-Type: application/json,Accept: application/json") \
         http-data=$payload \
-        output=user as-value
+        output=none
 
 } on-error={
     :log warning "ibg-sync: cycle failed, will retry next minute"
