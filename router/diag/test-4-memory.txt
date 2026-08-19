@@ -1,0 +1,50 @@
+# TEST 4 — the memory test. This is the one that matters.
+#
+# The router died of "out of memory", and it only started once the
+# 60-second scheduler was running. That pattern is a leak: a little RAM
+# lost on every poll, invisible for hours, fatal by morning.
+#
+# This runs the fetch 20 times back to back and logs free memory each
+# time. 20 polls is 20 minutes of real scheduler time, compressed into
+# about a minute.
+#
+# BEFORE RUNNING: /system scheduler disable [find name="ibg-sync"]
+#
+# Paste as a NEW script named ibg-test, policy read,write,test,sensitive.
+# Then:  /system script run ibg-test
+#        /log print where message~"ibg-mem"
+#
+# READING THE RESULT — compare the first line to the last:
+#
+#   free memory drops a bit and stops        -> normal, not a leak
+#   free memory falls on every single pass   -> LEAK. Report the numbers.
+#   the router reboots partway through       -> LEAK, and a fast one.
+#                                               Note which pass it reached.
+
+:local ibgUrl "https://ibphone.eclipselivecam.online/api/router-sync.php"
+:local ibgKey "21e1e9a7a22d47e43e9fd75d52b998821336d3c99e653d3747cb57069e6aab55"
+
+:log info ("ibg-mem: START free=" . [/system resource get free-memory] . \
+    " total=" . [/system resource get total-memory])
+
+:local i 0
+:while ($i < 20) do={
+    :set i ($i + 1)
+    :do {
+        :local res [/tool fetch url=$ibgUrl \
+            http-method=get \
+            http-header-field=("X-Sync-Key: " . $ibgKey) \
+            output=user as-value]
+        :local d ($res->"data")
+        :log info ("ibg-mem: pass " . $i . \
+            " bytes=" . [:len $d] . \
+            " free=" . [/system resource get free-memory])
+    } on-error={
+        :log warning ("ibg-mem: pass " . $i . " fetch failed, free=" . \
+            [/system resource get free-memory])
+    }
+    :delay 2s
+}
+
+:log info ("ibg-mem: END free=" . [/system resource get free-memory])
+:log info "ibg-mem: SURVIVED"
