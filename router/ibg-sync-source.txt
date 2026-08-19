@@ -1,49 +1,22 @@
 # =====================================================================
 # IB Gadgets Telecom — ibg-sync
 #
-# PASTE THIS INTO WINBOX, do not /import it.
-#
+# HOW TO INSTALL
 #   Winbox > System > Scripts > Add (+)
 #     Name:   ibg-sync
 #     Policy: tick read, write, policy, test, sensitive
-#     Source: paste everything below this comment block
+#     Source: paste EVERYTHING below the line of equals signs
 #     OK
 #
-# EDIT ONE LINE before saving: ibgKey, from the server:
+# EDIT ONE LINE first: ibgKey, from the server:
 #   php ~/private/init-config.php --show-key
-# The key is 64 hex characters. If yours is shorter, it got clipped.
+# It is 64 hex characters. Shorter means it got clipped in the copy.
 #
-# BEFORE THE FIRST RUN, disable the scheduler so a fault cannot loop:
-#   /system scheduler disable [find name="ibg-sync"]
-#   /system script run ibg-sync
-#   /log print where message~"ibg-sync"
-# Only once you see "Done sync." should you re-enable it:
-#   /system scheduler enable [find name="ibg-sync"]
-#
-# WHY NOT /import
-#
-# An .rsc wrapping this in `source={ ... }` asks the importer to swallow
-# nested braces, comments and $variables. RouterOS does not reliably
-# survive that: the script silently never appears, and
-# `/system script run ibg-sync` then reports "no such item".
+# BEFORE THE FIRST RUN, stop the scheduler so a fault cannot loop:
+#   Winbox > System > Scheduler, untick ibg-sync
+#   then Scripts > ibg-sync > Run Script, and check the Log
+# Only after you see "Done sync." should you tick the scheduler back on.
 # =====================================================================
-
- } block
-#   contains 20 nested braces, 36 comment lines and 75 $variables, and
-#   RouterOS's importer does not survive that combination: the script
-#   silently never appears, and the first sign of trouble is
-#   "no such item" from /system script run ibg-sync.
-#
-#   This file is kept as the readable, reviewable copy of the script and
-#   as the source ibg-sync-source.txt is generated from.
-#
-# It must never crash the scheduler. Everything is wrapped in :do/on-error.
-# =====================================================================
-
-/system script
-add name="ibg-sync" dont-require-permissions=no owner=admin \
-    policy=read,write,policy,test,sensitive source={
-
 :local ibgUrl "https://ibphone.eclipselivecam.online/api/router-sync.php"
 :local ibgKey "CHANGE-ME-64-hex-characters"
 
