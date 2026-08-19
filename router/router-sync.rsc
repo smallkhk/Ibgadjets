@@ -44,9 +44,22 @@ add name="ibg-sync" dont-require-permissions=no owner=admin \
     # -----------------------------------------------------------------
     # 1. Pull desired state
     # -----------------------------------------------------------------
+    # Accept: application/json is NOT optional, and it is not politeness.
+    #
+    # The host runs Imunify360 WebShield in front of the site. Any request
+    # that looks like it wants a web page gets a JavaScript challenge
+    # instead of an answer — "One moment, please..." — served as 11KB of
+    # HTML under a 200 OK. The router cannot run JavaScript, so it never
+    # passes, and it cannot tell from the status code that anything is
+    # wrong.
+    #
+    # Measured on this host, interleaved so it is not a timing artefact:
+    # 34 of 34 requests carrying this header came back as JSON; without
+    # it, 14 of 34 were challenged. WebShield leaves alone anything that
+    # asks for JSON rather than HTML.
     :local res [/tool fetch url=$ibgUrl \
         http-method=get \
-        http-header-field=("X-Sync-Key: " . $ibgKey) \
+        http-header-field=("X-Sync-Key: " . $ibgKey . ",Accept: application/json") \
         output=user as-value]
 
     :if (($res->"status") != "finished") do={
@@ -61,10 +74,17 @@ add name="ibg-sync" dont-require-permissions=no owner=admin \
     # 60-second scheduler that turns into a reboot loop, and :do/on-error
     # cannot save you because the crash is below the script layer.
     #
-    # It is easy to arrive here by accident: point ibgUrl at the site root
-    # instead of /api/router-sync.php and you get the homepage, or the
-    # host serves an error page, or a captive portal upstream intercepts
-    # the request. All of those start with '<', not '{'.
+    # This is not a hypothetical. It is what took this router down: the
+    # host's WAF answered the poll with an 11KB JavaScript challenge page
+    # under a 200 OK, the parser was handed HTML, and a 128MB box ran out
+    # of memory and rebooted — every 60 seconds, for as long as the
+    # scheduler was enabled. The Accept header above is what stops the
+    # challenge; this check is what stops it mattering if the header ever
+    # stops working.
+    #
+    # Other ways to arrive here: ibgUrl pointing at the site root instead
+    # of /api/router-sync.php, an error page, or a captive portal upstream
+    # intercepting the request. All of them start with '<', not '{'.
     :local data ($res->"data")
 
     :if ([:len $data] = 0) do={
@@ -205,7 +225,7 @@ add name="ibg-sync" dont-require-permissions=no owner=admin \
 
     /tool fetch url=$ibgUrl \
         http-method=post \
-        http-header-field=("X-Sync-Key: " . $ibgKey . ",Content-Type: application/json") \
+        http-header-field=("X-Sync-Key: " . $ibgKey . ",Content-Type: application/json,Accept: application/json") \
         http-data=$payload \
         output=user as-value
 
