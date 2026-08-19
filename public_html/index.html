@@ -32,9 +32,26 @@
     </div>
 
     <div class="nav-cta" id="navCta">
-      <button class="btn btn-ghost btn-sm" data-action="auth-login">Log in</button>
+      <button class="btn btn-ghost btn-sm nav-optional" data-action="auth-login">Log in</button>
       <button class="btn btn-primary btn-sm" data-action="auth-signup">Get connected</button>
     </div>
+
+    <!-- Only visible below 880px, where .nav-links is hidden. Without it
+         a phone gets a nav bar with no navigation in it at all. -->
+    <button class="nav-burger" data-action="menu" aria-label="Menu" aria-expanded="false" aria-controls="navMenu">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+        <path d="M4 7h16M4 12h16M4 17h16"/>
+      </svg>
+    </button>
+  </div>
+
+  <div class="nav-menu" id="navMenu">
+    <a href="#plans"    data-action="menu-close">Plans</a>
+    <a href="#how"      data-action="menu-close">How it works</a>
+    <a href="#coverage" data-action="menu-close">Coverage</a>
+    <a href="#faq"      data-action="menu-close">Questions</a>
+    <div class="sep"></div>
+    <div id="navMenuAccount"></div>
   </div>
 </nav>
 

@@ -42,14 +42,44 @@ document.addEventListener('DOMContentLoaded', async () => {
 function paintNav() {
   const cta = document.getElementById('navCta');
   if (ME) {
+    // No .nav-optional on "My account". On a phone this is the only way
+    // into the dashboard, and the dashboard is where the WiFi password
+    // lives — hiding it strands the customer completely.
     cta.innerHTML = `
       <a class="btn btn-ghost btn-sm" href="dashboard.html">My account</a>
       <button class="btn btn-primary btn-sm" data-action="scroll-plans">Buy data</button>`;
   } else {
     cta.innerHTML = `
-      <button class="btn btn-ghost btn-sm" data-action="auth-login">Log in</button>
+      <button class="btn btn-ghost btn-sm nav-optional" data-action="auth-login">Log in</button>
       <button class="btn btn-primary btn-sm" data-action="auth-signup">Get connected</button>`;
   }
+
+  // The burger menu repeats account access, so a narrow screen that has
+  // shrunk the buttons still has a full-size tap target for it.
+  const menu = document.getElementById('navMenuAccount');
+  if (menu) {
+    menu.innerHTML = ME
+      ? `<a href="dashboard.html">My account</a>
+         <a href="#" data-action="menu-logout">Log out</a>`
+      : `<a href="#" data-action="menu-login">Log in</a>
+         <a href="#" data-action="menu-signup">Create an account</a>`;
+  }
+}
+
+function toggleMenu(open) {
+  const menu = document.getElementById('navMenu');
+  const burger = document.querySelector('.nav-burger');
+  const next = open === undefined ? !menu.classList.contains('open') : open;
+  menu.classList.toggle('open', next);
+  if (burger) { burger.setAttribute('aria-expanded', String(next)); }
+}
+
+async function menuLogout() {
+  toggleMenu(false);
+  try { await API.post('api/auth.php?action=logout', {}); } catch (err) { /* leaving anyway */ }
+  ME = null;
+  paintNav();
+  toast('Logged out');
 }
 
 function paintFacts(live) {
@@ -416,5 +446,18 @@ on('submit-hash',    () => submitHash());
 on('auth',           () => submitAuth());
 on('toggle-flat',    () => toggleFlat());
 on('forgot',         () => openForgot());
+on('menu',           () => toggleMenu());
+// The click delegate calls preventDefault, so these anchors would close
+// the menu and go nowhere. Do the scroll here instead of relying on the
+// browser's default jump.
+on('menu-close',     (el) => {
+  toggleMenu(false);
+  const id = (el.getAttribute('href') || '').replace('#', '');
+  const target = id && document.getElementById(id);
+  if (target) { target.scrollIntoView({ behavior: 'smooth' }); }
+});
+on('menu-login',     () => { toggleMenu(false); openAuth('login'); });
+on('menu-signup',    () => { toggleMenu(false); openAuth('signup'); });
+on('menu-logout',    () => menuLogout());
 on('reset-lookup',   () => resetLookup());
 on('reset-finish',   () => resetFinish());

@@ -29,8 +29,8 @@ const say = (name, ok) => {
     process.env.PW_CHROME ? { executablePath: process.env.PW_CHROME } : {}
   );
 
-  const openPage = async () => {
-    const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const openPage = async (viewport) => {
+    const ctx = await browser.newContext({ viewport: viewport || { width: 1280, height: 900 } });
     const page = await ctx.newPage();
     const violations = [];
     page.on('console', (m) => {
@@ -142,6 +142,45 @@ const say = (name, ok) => {
   await page.locator("[data-submit='reset-finish'] button[type='submit']").click();
   await page.waitForTimeout(1500);
   say('reset completes and logs in', await page.locator('#ov-reset').isHidden());
+  say('no CSP violations', violations.length === 0);
+  violations.forEach((v) => console.log('        ' + v));
+  await ctx.close();
+
+  // Almost every customer here is on a phone. A rule meant to hide the
+  // "Log in" button on narrow screens also hid "My account", so a
+  // logged-in customer on a phone had no way to reach their dashboard —
+  // and the dashboard is where their WiFi password lives. Desktop-only
+  // checks never saw it, so the viewport is pinned small here.
+  console.log('mobile nav (390x844)');
+  ({ page, violations, ctx } = await openPage({ width: 390, height: 844 }));
+  await page.goto(B + '/index.html', { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(700);
+
+  say('burger visible on a phone', await page.locator('.nav-burger').isVisible());
+  await page.locator('.nav-burger').click();
+  await page.waitForTimeout(300);
+  say('menu opens', await page.locator('#navMenu').isVisible());
+  say('menu offers section links', await page.locator('#navMenu a[href="#plans"]').isVisible());
+
+  // Log in, then check account access survives at this width.
+  await page.locator("[data-action='menu-login']").click();
+  await page.waitForTimeout(400);
+  await page.fill('#f-phone', phone);
+  await page.fill('#f-pass', 'changed12345');   // set by the recovery step above
+  await page.locator('#authBtn').click();
+  await page.waitForTimeout(1500);
+
+  const acct = page.locator('#navCta a[href="dashboard.html"]');
+  say('logged in on mobile', await acct.count() > 0);
+  say('account link is actually visible', await acct.isVisible());
+  await page.locator('.nav-burger').click();
+  await page.waitForTimeout(300);
+  say('menu also offers account', await page.locator('#navMenu a[href="dashboard.html"]').isVisible());
+
+  await acct.click();
+  await page.waitForTimeout(1500);
+  say('reaches the dashboard', page.url().includes('dashboard.html'));
+  say('dashboard shows the WiFi password', (await page.locator('#wifiPass').innerText()).trim().length > 1);
   say('no CSP violations', violations.length === 0);
   violations.forEach((v) => console.log('        ' + v));
   await ctx.close();
