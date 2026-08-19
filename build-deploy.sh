@@ -70,7 +70,65 @@ Then:
 Full instructions: docs/deploy.md in the repository.
 TXT
 
+STAGE_PUBLIC="$STAGE/public_html"
+STAGE_PRIVATE="$STAGE/private"
+
 ( cd "$STAGE" && zip -qr "$OUT/ibgadgets-deploy.zip" . )
+
+# ---- a variant shaped for a subdomain docroot ------------------------
+#
+# Hostinger gives a subdomain its own folder, e.g. ~/ibphone, and that
+# folder IS the document root. The layout above does not fit: unzip it
+# there and private/ lands under a public URL, while the site sits one
+# level too deep in public_html/ where nothing serves it.
+#
+# So build a second zip that is extracted at the HOME directory instead,
+# and drops each part exactly where it belongs in one step.
+#
+#   bash build-deploy.sh ibphone   ->  dist/ibgadgets-<name>.zip
+#
+if [ -n "${1:-}" ]; then
+  DOCROOT="$1"
+  SUB="$(mktemp -d)"
+
+  mkdir -p "$SUB/$DOCROOT"
+  cp -r "$STAGE_PUBLIC/." "$SUB/$DOCROOT/"
+  cp -r "$STAGE_PRIVATE"  "$SUB/private"
+  cp -r "$ROOT/db"        "$SUB/db"
+  cp -r "$ROOT/tests"     "$SUB/tests"
+
+  cat > "$SUB/READ-ME-FIRST.txt" <<TXT
+IB Gadgets Telecom — extract this in your HOME directory, not in the
+website folder.
+
+  cd ~
+  unzip -o ibgadgets-$DOCROOT.zip
+
+That produces:
+
+  ~/$DOCROOT/     the website itself (this is your document root)
+  ~/private/      database password and sync key — ABOVE the web root
+  ~/db/           the SQL to import
+  ~/tests/        the smoke test
+
+private/ sits outside $DOCROOT on purpose. It holds your database
+password and the router sync key, and nothing in it should ever be
+reachable by URL.
+
+Then:
+  1. cp private/config.example.php private/config.php   and fill it in
+  2. Import db/schema.sql then db/seed.sql
+  3. php private/make-admin.php you\@example.com 'a-long-password' owner
+  4. chmod 750 private/uploads
+  5. Log in at /admin.html and set your real bank details
+  6. bash tests/e2e.sh   (see docs/deploy.md for the full command)
+
+Delete db/ and tests/ once the test passes.
+TXT
+
+  ( cd "$SUB" && zip -qr "$OUT/ibgadgets-$DOCROOT.zip" . )
+  rm -rf "$SUB"
+fi
 
 # ---- what goes on the router ----------------------------------------
 # preview/ is deliberately excluded: those files have their conditionals
