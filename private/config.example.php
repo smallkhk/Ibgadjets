@@ -22,7 +22,7 @@ return [
     ],
 
     // ---- site ---------------------------------------------------------
-    'site_url'   => 'https://ibgadgets.ng',
+    'site_url'   => 'https://ibphone.eclipselivecam.online',
     'timezone'   => 'Africa/Lagos',
     'debug'      => false,          // true prints SQL errors. NEVER true in production.
 

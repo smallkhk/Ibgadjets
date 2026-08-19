@@ -22,7 +22,7 @@
 add name="ibg-sync" dont-require-permissions=no owner=admin \
     policy=read,write,policy,test,sensitive source={
 
-:local ibgUrl "https://ibgadgets.ng/api/router-sync.php"
+:local ibgUrl "https://ibphone.eclipselivecam.online/api/router-sync.php"
 :local ibgKey "CHANGE-ME-64-hex-characters"
 
 # Only users carrying this comment are ours to create, change or delete.

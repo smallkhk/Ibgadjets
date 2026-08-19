@@ -17,9 +17,10 @@
   The only external file is /md5.js, which RouterOS already ships in the
   hotspot folder. Do not delete it.
 
-  BEFORE UPLOADING, edit:
-    - the "Create account & buy data" link, to your real domain
-    - the support phone number at the bottom
+  The domain is already set to ibphone.eclipselivecam.online. To change
+  it later run:  bash set-domain.sh yourdomain.com
+
+  BEFORE UPLOADING, edit the support phone number at the bottom.
 
   Preview it without a router:  php router/preview-login.php
 -->
@@ -157,7 +158,7 @@ $(endif)
 
     <!-- Reachable without a plan because the walled garden allows it.
          Must match the dst-host entries in router/setup.rsc. -->
-    <a class="btn alt" href="http://ibgadgets.ng/?from=hotspot">Create account &amp; buy data</a>
+    <a class="btn alt" href="https://ibphone.eclipselivecam.online/?from=hotspot">Create account &amp; buy data</a>
 
     <p class="foot">
       No plan yet? Tap above — you can reach our site<br>and pay without internet.<br><br>

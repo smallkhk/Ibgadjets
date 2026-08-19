@@ -59,7 +59,10 @@ TXT
 ( cd "$STAGE" && zip -qr "$OUT/ibgadgets-deploy.zip" . )
 
 # ---- what goes on the router ----------------------------------------
-( cd "$ROOT" && zip -qr "$OUT/ibgadgets-router.zip" router )
+# preview/ is deliberately excluded: those files have their conditionals
+# already resolved, so uploading one would give a login form that posts
+# nowhere and an error box that can never appear.
+( cd "$ROOT" && zip -qr "$OUT/ibgadgets-router.zip" router -x "router/preview/*" )
 
 rm -rf "$STAGE"
 

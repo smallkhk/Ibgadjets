@@ -78,7 +78,7 @@ add chain=srcnat out-interface=ether1 action=masquerade comment="ibg nat"
 # by the account disappearing from the sync list, not by the cookie.
 # ---------------------------------------------------------------------
 /ip hotspot profile
-add name=ibg-hs hotspot-address=10.5.50.1 dns-name=wifi.ibgadgets.ng \
+add name=ibg-hs hotspot-address=10.5.50.1 dns-name=wifi.ibphone.eclipselivecam.online \
     html-directory=hotspot login-by=mac-cookie,http-chap \
     use-radius=no
 
@@ -105,14 +105,22 @@ remove [find name="default-trial"]
 # nothing else. Keep this list short — every entry is free internet.
 # ---------------------------------------------------------------------
 /ip hotspot walled-garden
-add dst-host=ibgadgets.ng            comment="ibg site"
-add dst-host="*.ibgadgets.ng"        comment="ibg site"
+add dst-host=ibphone.eclipselivecam.online            comment="ibg site"
+add dst-host="*.ibphone.eclipselivecam.online"        comment="ibg site"
 add dst-host="*.opayweb.com"         comment="opay checkout"
 add dst-host="*.opaycheckout.com"    comment="opay checkout"
 
-# The site's own IP, so TLS to it works before login.
+# The site's own IP, so HTTPS to it works before login. The dst-host
+# entries above only cover plain HTTP, because the hotspot cannot read a
+# hostname out of an encrypted request.
+#
+# Two things to know: RouterOS resolves this to an IP address, and on
+# shared hosting that address is shared with other sites — so they are
+# reachable too. And if the host ever moves you to a different IP, HTTPS
+# stops working until the router re-resolves. If signup pages suddenly
+# stop loading for unpaid customers, check this first.
 /ip hotspot walled-garden ip
-add dst-host=ibgadgets.ng action=accept comment="ibg site"
+add dst-host=ibphone.eclipselivecam.online action=accept comment="ibg site"
 
 # ---------------------------------------------------------------------
 # ANTI-SHARING — TTL inspection
