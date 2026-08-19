@@ -125,9 +125,40 @@
 
     :local users ($doc->"users")
     :local blocked ($doc->"blocked_macs")
+    :local profiles ($doc->"profiles")
 
     :local wanted [:toarray ""]
     :local applied ""
+
+    # -----------------------------------------------------------------
+    # 1b. Profiles, before users
+    #
+    # Speed and device count are NOT properties of /ip hotspot user.
+    # RouterOS keeps rate-limit and shared-users on the user PROFILE, and
+    # passing either to /ip hotspot user fails with "bad parameter" — on
+    # this board, inside a script, that has taken the router down rather
+    # than raising a catchable error.
+    #
+    # So the server sends one profile per distinct speed/device pairing
+    # and each user names the profile it belongs to. Profiles are created
+    # before any user references one, because a user cannot point at a
+    # profile that does not exist.
+    # -----------------------------------------------------------------
+    :foreach p in=$profiles do={
+        :local pname  ($p->"name")
+        :local prate  ($p->"rate_limit")
+        :local pshare ($p->"shared_users")
+
+        :local pfound [/ip hotspot user profile find where name=$pname]
+        :if ([:len $pfound] = 0) do={
+            /ip hotspot user profile add name=$pname \
+                rate-limit=$prate shared-users=$pshare
+            :log info ("ibg-sync: profile created " . $pname)
+        } else={
+            /ip hotspot user profile set $pfound \
+                rate-limit=$prate shared-users=$pshare
+        }
+    }
 
     # -----------------------------------------------------------------
     # 2. Create or update every account the site listed
@@ -135,8 +166,7 @@
     :foreach u in=$users do={
         :local uname ($u->"username")
         :local pass  ($u->"password")
-        :local rate  ($u->"rate_limit")
-        :local share ($u->"shared_users")
+        :local uprof ($u->"profile")
         :local sub   ($u->"sub_id")
         :local dmb   ($u->"data_mb")
 
@@ -150,14 +180,14 @@
 
         :if ([:len $found] = 0) do={
             /ip hotspot user add name=$uname password=$pass \
-                rate-limit=$rate shared-users=$share \
+                profile=$uprof \
                 limit-bytes-total=$bytes comment=$mark
             :log info ("ibg-sync: provisioned " . $uname)
         } else={
             # Reset the byte counter when the site's remaining figure has
             # moved ahead of ours — that is a fresh bundle, not the same one.
             /ip hotspot user set $found password=$pass \
-                rate-limit=$rate shared-users=$share \
+                profile=$uprof \
                 limit-bytes-total=$bytes comment=$mark disabled=no
         }
 

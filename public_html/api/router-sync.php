@@ -65,7 +65,8 @@ function send_desired_state(): never
           ORDER BY s.id"
     );
 
-    $users = [];
+    $users    = [];
+    $profiles = [];   // keyed by name so duplicates collapse
     foreach ($rows as $r) {
         if (empty($r['router_username']) || empty($r['router_password'])) {
             continue;
@@ -83,13 +84,36 @@ function send_desired_state(): never
             }
         }
 
+        // Speed and device count are NOT per-user settings on RouterOS.
+        // /ip hotspot user has no rate-limit and no shared-users — both
+        // live on /ip hotspot user profile, and setting them on a user
+        // fails with "bad parameter". So each distinct combination needs
+        // its own profile, and the user is pointed at it.
+        //
+        // The name is derived from the values rather than the plan id, so
+        // two plans that happen to sell the same speed and device count
+        // share one profile, and editing a plan's speed moves its
+        // customers onto a different profile on the next poll instead of
+        // silently rewriting one that other plans are also using.
+        $down   = (int) $r['speed_down_mbps'];
+        $up     = (int) $r['speed_up_mbps'];
+        $shared = max(1, (int) $r['device_limit']);
+        $profile = sprintf('ibg-%d-%d-%d', $down, $up, $shared);
+
+        $profiles[$profile] = [
+            'name'         => $profile,
+            'rate_limit'   => sprintf('%dM/%dM', $down, $up),
+            'shared_users' => $shared,
+        ];
+
         $users[] = [
             'username'     => $r['router_username'],
             'password'     => $r['router_password'],
             'sub_id'       => (int) $r['sub_id'],
             'data_mb'      => $remaining,                       // null = unlimited
-            'rate_limit'   => sprintf('%dM/%dM', (int) $r['speed_down_mbps'], (int) $r['speed_up_mbps']),
-            'shared_users' => max(1, (int) $r['device_limit']), // simultaneous devices
+            'profile'      => $profile,
+            'rate_limit'   => sprintf('%dM/%dM', $down, $up),   // kept for the admin panel
+            'shared_users' => $shared,
             'seconds_left' => max(0, strtotime($r['expires_at']) - time()),
         ];
     }
@@ -104,6 +128,9 @@ function send_desired_state(): never
         'server_time'   => date('c'),
         'poll_seconds'  => 60,
         'tether_policy' => setting('tether_policy', 'flag'),
+        // Profiles must be reconciled before users: a user cannot be
+        // pointed at a profile that does not exist yet.
+        'profiles'      => array_values($profiles),
         'users'         => $users,
         'blocked_macs'  => $blocked,
     ]);
