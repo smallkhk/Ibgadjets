@@ -102,15 +102,59 @@ $(if chap-id)
 </form>
 <script type="text/javascript" src="/md5.js"></script>
 <script type="text/javascript">
-function doLogin() {
-  document.sendin.username.value = document.login.username.value;
+  var IBG_CHAP_ID = '$(chap-id)';
+  var IBG_CHAP_CHALLENGE = '$(chap-challenge)';
+</script>
+$(endif)
+
+<script type="text/javascript">
+/*
+  The customer types their phone number. The router does not store it as
+  a phone number.
+
+  RouterOS builds its account list from JSON the site sends, and its JSON
+  parser reads "08153329197" as a NUMBER — so the leading zero is gone by
+  the time the account exists, and the account is called 8153329197. A
+  customer typing their real number would never match.
+
+  So the account name carries a prefix that cannot be read as a number,
+  and this function applies the same transformation to whatever is typed.
+  Digits only, then "ib" in front: 0803 000 0000 and 08030000000 and
+  ib08030000000 all normalise to the same thing, which means spaces,
+  a stray paste of the prefixed name, and a failed login that refills the
+  field all behave.
+*/
+function ibgAccount(typed) {
+  var digits = String(typed).replace(/\D/g, '');
+
+  // +234 815 332 9197 is the same person as 0815 332 9197, and phones
+  // that autofill from a contact card hand over the international form.
+  // Signup stores the 0-prefixed number, so fold one into the other.
+  if (digits.length === 13 && digits.indexOf('234') === 0) {
+    digits = '0' + digits.substring(3);
+  }
+
+  return 'ib' + digits;
+}
+
+function ibgSubmit() {
+  var account = ibgAccount(document.login.username.value);
+
+  // IBG_CHAP_ID only exists when the router offered CHAP. When it did
+  // not, that whole block is absent from the page and the visible form
+  // posts on its own — so the field itself has to carry the account name.
+  if (typeof IBG_CHAP_ID === 'undefined') {
+    document.login.username.value = account;
+    return true;
+  }
+
+  document.sendin.username.value = account;
   document.sendin.password.value =
-      hexMD5('$(chap-id)' + document.login.password.value + '$(chap-challenge)');
+      hexMD5(IBG_CHAP_ID + document.login.password.value + IBG_CHAP_CHALLENGE);
   document.sendin.submit();
   return false;
 }
 </script>
-$(endif)
 
 <div class="box">
 
@@ -135,7 +179,10 @@ $(endif)
     <p class="sub">Use the phone number and password you signed up with.
        You only do this once on this device — after today it connects on its own.</p>
 
-    <form name="login" action="$(link-login-only)" method="post" $(if chap-id)onsubmit="return doLogin()"$(endif)>
+    <!-- onsubmit is unconditional now. The old version only ran on CHAP
+         routers, which left the non-CHAP path posting the raw phone
+         number at an account that is not called that. -->
+    <form name="login" action="$(link-login-only)" method="post" onsubmit="return ibgSubmit()">
       <input type="hidden" name="dst" value="$(link-orig)">
       <input type="hidden" name="popup" value="false">
 

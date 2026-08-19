@@ -20,6 +20,13 @@ ADMIN_PASS="${ADMIN_PASS:-testpass1234}"
 # php rather than shuf: coreutils is not guaranteed on shared hosting,
 # but PHP is — the whole project runs on it.
 PHONE="${PHONE:-0803$(php -r 'echo random_int(1000000,9999999);')}"
+# What the ROUTER calls this customer. Not the same string as the phone
+# number: RouterOS's JSON parser reads a bare 08... as a number and eats
+# the leading zero, so the wire name carries a prefix that cannot be
+# parsed as one. Line 119 deliberately reports usage under the bare phone
+# instead — old accounts predate the prefix, and the server has to keep
+# matching them or their usage goes unbilled in silence.
+ACCOUNT="ib${PHONE}"
 
 CJ=$(mktemp); AJ=$(mktemp)
 PASS=0; FAIL=0
@@ -93,7 +100,7 @@ want "approved" "$(jq_get "$APPROVE" ok)" "true"
 # ------------------------------------------------------------------ router
 say "Router now sees them, with the right limits"
 SYNC=$(curl -s "$BASE/api/router-sync.php" -H "X-Sync-Key: $SYNC_KEY")
-IDX=$(printf '%s' "$SYNC" | php -r '$j=json_decode(stream_get_contents(STDIN),true); foreach(($j["users"]??[]) as $i=>$u){ if($u["username"]===$argv[1]){echo $i;exit;} } echo "";' "$PHONE")
+IDX=$(printf '%s' "$SYNC" | php -r '$j=json_decode(stream_get_contents(STDIN),true); foreach(($j["users"]??[]) as $i=>$u){ if($u["username"]===$argv[1]){echo $i;exit;} } echo "";' "$ACCOUNT")
 [ -n "$IDX" ] && ok "customer is on the desired-state list" || bad "customer is on the desired-state list" "$SYNC"
 
 want "full 5GB allowance"      "$(jq_get "$SYNC" "users.$IDX.data_mb")"      "5120"
@@ -104,13 +111,13 @@ SUBID=$(jq_get "$SYNC" "users.$IDX.sub_id")
 say "Router reports back what it applied, plus usage"
 REPORT=$(curl -s -X POST "$BASE/api/router-sync.php" -H "X-Sync-Key: $SYNC_KEY" \
   -H "Content-Type: application/json" \
-  -d "{\"applied\":[$SUBID],\"usage\":[{\"username\":\"$PHONE\",\"used_mb\":1834,\"mac\":\"AA:BB:CC:DD:EE:01\",\"ip\":\"10.5.50.14\",\"tethered_hits\":1}]}")
+  -d "{\"applied\":[$SUBID],\"usage\":[{\"username\":\"$ACCOUNT\",\"used_mb\":1834,\"mac\":\"AA:BB:CC:DD:EE:01\",\"ip\":\"10.5.50.14\",\"tethered_hits\":1}]}")
 want "report accepted" "$(jq_get "$REPORT" ok)" "true"
 want "one subscription confirmed" "$(jq_get "$REPORT" synced)" "1"
 
 say "Remaining data is what gets sent, not the full bundle"
 SYNC=$(curl -s "$BASE/api/router-sync.php" -H "X-Sync-Key: $SYNC_KEY")
-IDX=$(printf '%s' "$SYNC" | php -r '$j=json_decode(stream_get_contents(STDIN),true); foreach(($j["users"]??[]) as $i=>$u){ if($u["username"]===$argv[1]){echo $i;exit;} } echo "";' "$PHONE")
+IDX=$(printf '%s' "$SYNC" | php -r '$j=json_decode(stream_get_contents(STDIN),true); foreach(($j["users"]??[]) as $i=>$u){ if($u["username"]===$argv[1]){echo $i;exit;} } echo "";' "$ACCOUNT")
 want "5120 - 1834 = 3286 left" "$(jq_get "$SYNC" "users.$IDX.data_mb")" "3286"
 
 say "A router reset cannot erase spent data"
@@ -118,7 +125,7 @@ curl -s -o /dev/null -X POST "$BASE/api/router-sync.php" -H "X-Sync-Key: $SYNC_K
   -H "Content-Type: application/json" \
   -d "{\"applied\":[],\"usage\":[{\"username\":\"$PHONE\",\"used_mb\":0,\"mac\":\"AA:BB:CC:DD:EE:01\"}]}"
 SYNC=$(curl -s "$BASE/api/router-sync.php" -H "X-Sync-Key: $SYNC_KEY")
-IDX=$(printf '%s' "$SYNC" | php -r '$j=json_decode(stream_get_contents(STDIN),true); foreach(($j["users"]??[]) as $i=>$u){ if($u["username"]===$argv[1]){echo $i;exit;} } echo "";' "$PHONE")
+IDX=$(printf '%s' "$SYNC" | php -r '$j=json_decode(stream_get_contents(STDIN),true); foreach(($j["users"]??[]) as $i=>$u){ if($u["username"]===$argv[1]){echo $i;exit;} } echo "";' "$ACCOUNT")
 want "usage held at 1834, still 3286 left" "$(jq_get "$SYNC" "users.$IDX.data_mb")" "3286"
 
 # --------------------------------------------------------------- dashboard
@@ -139,7 +146,7 @@ SETDEV=$(curl -s -b "$AJ" -X POST "$BASE/api/admin.php?action=customer_update" \
 want "override saved" "$(jq_get "$SETDEV" ok)" "true"
 
 SYNC=$(curl -s "$BASE/api/router-sync.php" -H "X-Sync-Key: $SYNC_KEY")
-IDX=$(printf '%s' "$SYNC" | php -r '$j=json_decode(stream_get_contents(STDIN),true); foreach(($j["users"]??[]) as $i=>$u){ if($u["username"]===$argv[1]){echo $i;exit;} } echo "";' "$PHONE")
+IDX=$(printf '%s' "$SYNC" | php -r '$j=json_decode(stream_get_contents(STDIN),true); foreach(($j["users"]??[]) as $i=>$u){ if($u["username"]===$argv[1]){echo $i;exit;} } echo "";' "$ACCOUNT")
 want "router told 3 devices" "$(jq_get "$SYNC" "users.$IDX.shared_users")" "3"
 
 # ------------------------------------------------------------- suspension

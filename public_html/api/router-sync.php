@@ -25,6 +25,41 @@ require __DIR__ . '/../../private/bootstrap.php';
 
 require_sync_key((string) ($CONFIG['sync_key'] ?? ''));
 
+
+// =====================================================================
+// Account names on the router
+//
+// RouterOS parses the JSON we send, and its parser reads "08153329197"
+// as a NUMBER. The leading zero is gone before the account is created,
+// so the router ends up with 8153329197 and the customer's phone number
+// never matches at the login page. Nothing on the router can recover the
+// zero — it was lost in the parser.
+//
+// So the name we put on the wire carries a prefix that cannot be read as
+// a number. The database still stores the plain phone number, the
+// dashboard still shows the plain phone number, and the captive portal
+// applies the same prefix to whatever the customer types. The prefix
+// exists only between here and the router.
+// =====================================================================
+
+const ROUTER_ACCOUNT_PREFIX = 'ib';
+
+function router_account(string $phone): string
+{
+    return ROUTER_ACCOUNT_PREFIX . $phone;
+}
+
+function router_account_to_phone(string $account): string
+{
+    // Tolerate a router that reports back without the prefix. Older
+    // accounts predate it, and a usage report we cannot match is usage
+    // silently not billed.
+    if (str_starts_with($account, ROUTER_ACCOUNT_PREFIX)) {
+        return substr($account, strlen(ROUTER_ACCOUNT_PREFIX));
+    }
+    return $account;
+}
+
 if (method() === 'GET') {
     send_desired_state();
 }
@@ -107,7 +142,7 @@ function send_desired_state(): never
         ];
 
         $users[] = [
-            'username'     => $r['router_username'],
+            'username'     => router_account($r['router_username']),
             'password'     => $r['router_password'],
             'sub_id'       => (int) $r['sub_id'],
             'data_mb'      => $remaining,                       // null = unlimited
@@ -175,7 +210,7 @@ function receive_report(): never
             if (!is_array($u) || empty($u['username'])) {
                 continue;
             }
-            $username = substr((string) $u['username'], 0, 60);
+            $username = router_account_to_phone(substr((string) $u['username'], 0, 60));
             $usedMb   = max(0.0, (float) ($u['used_mb'] ?? 0));
             $mac      = normalize_mac($u['mac'] ?? null);
             $ip       = filter_var((string) ($u['ip'] ?? ''), FILTER_VALIDATE_IP) ?: null;
