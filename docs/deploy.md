@@ -32,18 +32,46 @@ Then the router — see part 2. Everything is explained in full underneath.
 
 ### Prove it works before you tell anyone
 
+**This is the last step, not the first — the site has to be live first.**
+
+Where to type it: **hPanel → Advanced → Terminal** (or SSH). You are then
+sitting in `/home/USER`, which is where you uploaded everything.
+
 ```bash
-BASE=https://yourdomain \
-SYNC_KEY=<the key from config.php> \
-ADMIN_EMAIL=you@example.com ADMIN_PASS='your password' \
+cd ~
+BASE=https://ibphone.eclipselivecam.online \
+SYNC_KEY=$(php -r 'echo (require "private/config.php")["sync_key"];') \
+ADMIN_EMAIL=youremail@example.com \
+ADMIN_PASS='the password you gave make-admin.php' \
   bash tests/e2e.sh
 ```
 
-30 checks: signup, purchase, approval, the router seeing the customer with
-the right limits, remaining-data arithmetic, usage flowing back, a router
-reset not erasing spent data, the device-allowance override, suspension.
-All 30 should pass. If signup reports a rate limit, that is the limiter
-working — wait ten minutes or clear the `rate_limits` table.
+Only two things to fill in: **your admin email** and **your admin
+password** — the exact pair you passed to `make-admin.php`. The sync key
+reads itself out of `private/config.php`, so there is nothing to copy or
+paste wrong.
+
+30 checks: signup, purchase, approval, the router seeing the customer
+with the right limits, remaining-data arithmetic, usage flowing back, a
+router reset not erasing spent data, the device-allowance override,
+suspension. All 30 should pass.
+
+If signup reports a rate limit, that is the limiter working — wait ten
+minutes, or clear it:
+
+```bash
+mysql -u DBUSER -p DBNAME -e "DELETE FROM rate_limits WHERE bucket LIKE 'signup:%';"
+```
+
+**No Terminal on your plan?** Run it from any Mac or Linux machine, or
+Windows with Git Bash — it only needs `bash`, `curl` and `php`, and it
+talks to your site over HTTPS like any other client. Clone the repo,
+then use the same command with `SYNC_KEY=` set to the value you put in
+`private/config.php`.
+
+**Tidy up after.** Once it passes, delete `tests/` and `db/` from the
+server. Neither is web reachable, but nothing on a production box should
+be there without a reason.
 
 ---
 

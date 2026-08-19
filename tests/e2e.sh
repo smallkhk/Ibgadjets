@@ -17,7 +17,9 @@ BASE="${BASE:-http://127.0.0.1:8824}"
 SYNC_KEY="${SYNC_KEY:-testsynckey0123456789abcdef0123456789abcdef0123456789abcdef012345}"
 ADMIN_EMAIL="${ADMIN_EMAIL:-owner@ibgadgets.ng}"
 ADMIN_PASS="${ADMIN_PASS:-testpass1234}"
-PHONE="${PHONE:-0803$(shuf -i 1000000-9999999 -n 1)}"
+# php rather than shuf: coreutils is not guaranteed on shared hosting,
+# but PHP is — the whole project runs on it.
+PHONE="${PHONE:-0803$(php -r 'echo random_int(1000000,9999999);')}"
 
 CJ=$(mktemp); AJ=$(mktemp)
 PASS=0; FAIL=0

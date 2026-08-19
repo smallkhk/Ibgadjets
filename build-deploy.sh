@@ -39,6 +39,12 @@ mkdir -p "$STAGE/private/uploads"
 mkdir -p "$STAGE/db"
 cp -r "$ROOT/db/." "$STAGE/db/"
 
+# And the smoke test, so it can be run ON the server straight after
+# upload. It is a shell script above the document root, so it is not
+# web reachable — but delete it once you are happy, along with db/.
+mkdir -p "$STAGE/tests"
+cp -r "$ROOT/tests/." "$STAGE/tests/"
+
 cat > "$STAGE/READ-ME-FIRST.txt" <<'TXT'
 IB Gadgets Telecom — upload layout
 
