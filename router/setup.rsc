@@ -157,12 +157,22 @@ add chain=prerouting in-interface=bridge-hotspot ttl=equal:254 \
     action=add-src-to-address-list address-list=ibg-tethered address-list-timeout=10m \
     comment="ibg anti-share: 255 minus one hop"
 
+# The marking rules below exist ONLY to feed the drop rule, and the drop
+# rule ships disabled — so by default these two are pure cost. Packet
+# marks switch off fasttrack, which means every connection on the
+# compound gets fully tracked, and connection tracking is where RAM goes
+# on a 128MB router. The address-list rules above do the flagging the
+# site reads; they do not need these.
+#
+# Enable all three together, or none of them.
 add chain=prerouting in-interface=bridge-hotspot ttl=equal:63 \
-    action=mark-packet new-packet-mark=ibg-tether passthrough=yes comment="ibg anti-share mark"
+    action=mark-packet new-packet-mark=ibg-tether passthrough=yes disabled=yes \
+    comment="ibg anti-share mark (enable with the drop rule)"
 add chain=prerouting in-interface=bridge-hotspot ttl=equal:127 \
-    action=mark-packet new-packet-mark=ibg-tether passthrough=yes comment="ibg anti-share mark"
+    action=mark-packet new-packet-mark=ibg-tether passthrough=yes disabled=yes \
+    comment="ibg anti-share mark (enable with the drop rule)"
 
-# Flip disabled=no to enforce instead of merely flagging.
+# Flip all three to disabled=no to enforce instead of merely flagging.
 /ip firewall filter
 add chain=forward packet-mark=ibg-tether action=drop disabled=yes \
     comment="ibg anti-share: drop shared traffic (enable to enforce)"
