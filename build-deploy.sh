@@ -45,12 +45,20 @@ cp -r "$ROOT/db/." "$STAGE/db/"
 mkdir -p "$STAGE/tests"
 cp -r "$ROOT/tests/." "$STAGE/tests/"
 
+# Repair tool, for the common case of unzipping into the document root.
+cp "$ROOT/fix-layout.sh" "$STAGE/"
+
 cat > "$STAGE/READ-ME-FIRST.txt" <<'TXT'
 IB Gadgets Telecom — upload layout
 
   private/       ->  /home/USER/private/        (NOT inside public_html)
   public_html/   ->  /home/USER/public_html/
   db/            ->  anywhere; import it, then delete it from the server
+
+IF YOU UNZIPPED THIS STRAIGHT INTO YOUR DOCUMENT ROOT, STOP AND RUN:
+  bash fix-layout.sh            (shows what is wrong, changes nothing)
+  bash fix-layout.sh --apply    (fixes it)
+private/ holds your database password and must never sit under a URL.
 
 Then:
   1. cp private/config.example.php private/config.php  and fill it in
