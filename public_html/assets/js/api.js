@@ -127,3 +127,46 @@ function copyText(text, okMsg = 'Copied') {
     .then(() => toast(okMsg))
     .catch(() => toast('Copy it by hand: ' + text, true));
 }
+
+
+/* =====================================================================
+   Event delegation.
+
+   The Content-Security-Policy is script-src 'self' — no 'unsafe-inline'
+   — so an onclick="" attribute or an inline <script> block is refused by
+   the browser. That is deliberate on a site that approves payments: it
+   is the control that stops injected markup from executing.
+
+   The cost is that handlers cannot live in the HTML. Elements declare
+   what they want instead:
+
+     <button data-action="buy" data-plan="3">
+     <form data-submit="auth">
+     <select data-change="toggle-flat">
+
+   and the page registers behaviour by name with on('buy', fn).
+   ===================================================================== */
+
+const Actions = {};
+
+function on(name, fn) { Actions[name] = fn; }
+
+function delegate(evt, attr, preventDefault) {
+  document.addEventListener(evt, (e) => {
+    const el = e.target.closest('[' + attr + ']');
+    if (!el) { return; }
+    const fn = Actions[el.getAttribute(attr)];
+    if (!fn) { return; }
+    if (preventDefault) { e.preventDefault(); }
+    fn(el, e);
+  });
+}
+
+delegate('click',  'data-action', true);
+delegate('submit', 'data-submit', true);
+delegate('change', 'data-change', false);
+
+// Clicking an overlay's backdrop closes it; clicking the panel does not.
+document.addEventListener('click', (e) => {
+  if (e.target.classList && e.target.classList.contains('overlay')) { closeAll(); }
+});

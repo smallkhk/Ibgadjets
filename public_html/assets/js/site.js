@@ -44,11 +44,11 @@ function paintNav() {
   if (ME) {
     cta.innerHTML = `
       <a class="btn btn-ghost btn-sm" href="dashboard.html">My account</a>
-      <button class="btn btn-primary btn-sm" onclick="scrollToPlans()">Buy data</button>`;
+      <button class="btn btn-primary btn-sm" data-action="scroll-plans">Buy data</button>`;
   } else {
     cta.innerHTML = `
-      <button class="btn btn-ghost btn-sm" onclick="openAuth('login')">Log in</button>
-      <button class="btn btn-primary btn-sm" onclick="openAuth('signup')">Get connected</button>`;
+      <button class="btn btn-ghost btn-sm" data-action="auth-login">Log in</button>
+      <button class="btn btn-primary btn-sm" data-action="auth-signup">Get connected</button>`;
   }
 }
 
@@ -110,7 +110,7 @@ function renderPlans() {
         <li>${tickSvg}<span>Valid ${esc(p.valid)}</span></li>
         <li>${tickSvg}<span>${esc(p.devices)}</span></li>
       </ul>
-      <button class="btn ${p.featured ? 'btn-primary' : 'btn-ghost'} btn-block" onclick="buy(${p.id})">
+      <button class="btn ${p.featured ? 'btn-primary' : 'btn-ghost'} btn-block" data-action="buy" data-plan="${p.id}">
         Buy ${esc(p.name)}
       </button>
     </article>
@@ -134,8 +134,8 @@ function openAuth(mode) {
   document.getElementById('f-pass').autocomplete = signup ? 'new-password' : 'current-password';
 
   document.getElementById('authSwap').innerHTML = signup
-    ? `Already have an account? <a href="#" onclick="openAuth('login');return false" style="color:var(--beam)">Log in</a>`
-    : `New here? <a href="#" onclick="openAuth('signup');return false" style="color:var(--beam)">Create an account</a>`;
+    ? `Already have an account? <a href="#" data-action="auth-login" style="color:var(--beam)">Log in</a>`
+    : `New here? <a href="#" data-action="auth-signup" style="color:var(--beam)">Create an account</a>`;
 
   toggleFlat();
   openOv('ov-auth');
@@ -147,8 +147,7 @@ function toggleFlat() {
   document.getElementById('flatField').classList.toggle('hide', !isCompound);
 }
 
-async function submitAuth(event) {
-  event.preventDefault();
+async function submitAuth() {
   const btn = document.getElementById('authBtn');
   btn.disabled = true;
 
@@ -177,7 +176,6 @@ async function submitAuth(event) {
   } finally {
     btn.disabled = false;
   }
-  return false;
 }
 
 /* --------------------------------------------------------- checkout */
@@ -324,3 +322,25 @@ async function submitHash() {
     toast(err.message, true);
   }
 }
+
+
+/* ------------------------------------------------------- wiring ----
+   The HTML declares intent with data-action / data-submit / data-change
+   and this is where each name gets its behaviour. Nothing executable
+   lives in the markup, which is what lets the CSP stay strict.
+   ------------------------------------------------------------------ */
+
+on('auth-login',     () => openAuth('login'));
+on('auth-signup',    () => openAuth('signup'));
+on('scroll-plans',   () => scrollToPlans());
+on('open-support',   () => openOv('ov-support'));
+on('close',          () => closeAll());
+on('aud',            (el) => setAud(el.dataset.aud));
+on('buy',            (el) => buy(Number(el.dataset.plan)));
+on('start-purchase', () => startPurchase());
+on('copy-ref',       () => copyRef());
+on('copy-account',   () => copyAccount());
+on('upload-proof',   () => uploadProof());
+on('submit-hash',    () => submitHash());
+on('auth',           () => submitAuth());
+on('toggle-flat',    () => toggleFlat());

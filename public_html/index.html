@@ -34,8 +34,8 @@
     </div>
 
     <div class="nav-cta" id="navCta">
-      <button class="btn btn-ghost btn-sm" onclick="openAuth('login')">Log in</button>
-      <button class="btn btn-primary btn-sm" onclick="openAuth('signup')">Get connected</button>
+      <button class="btn btn-ghost btn-sm" data-action="auth-login">Log in</button>
+      <button class="btn btn-primary btn-sm" data-action="auth-signup">Get connected</button>
     </div>
   </div>
 </nav>
@@ -53,8 +53,8 @@
       </p>
 
       <div class="hero-actions">
-        <button class="btn btn-primary" onclick="scrollToPlans()">See the bundles</button>
-        <button class="btn btn-ghost" onclick="openOv('ov-support')">Talk to a human</button>
+        <button class="btn btn-primary" data-action="scroll-plans">See the bundles</button>
+        <button class="btn btn-ghost" data-action="open-support">Talk to a human</button>
       </div>
 
       <div class="hero-facts">
@@ -97,8 +97,8 @@
       <span class="eyebrow">Bundles</span>
       <h2>Pick what actually fits you.</h2>
       <div class="tabs" role="tablist">
-        <button class="tab on" id="tab-compound" role="tab" onclick="setAud('compound')">I live here</button>
-        <button class="tab"    id="tab-visitor"  role="tab" onclick="setAud('visitor')">I'm visiting</button>
+        <button class="tab on" id="tab-compound" role="tab" data-action="aud" data-aud="compound">I live here</button>
+        <button class="tab"    id="tab-visitor"  role="tab" data-action="aud" data-aud="visitor">I'm visiting</button>
       </div>
       <p class="tab-note" id="audNote"></p>
     </div>
@@ -264,14 +264,14 @@
 
       <div>
         <h4>Account</h4>
-        <a href="#" onclick="openAuth('login');return false">Log in</a>
-        <a href="#" onclick="openAuth('signup');return false">Create account</a>
+        <a href="#" data-action="auth-login">Log in</a>
+        <a href="#" data-action="auth-signup">Create account</a>
         <a href="dashboard.html">My dashboard</a>
       </div>
 
       <div>
         <h4>Support</h4>
-        <a href="#" onclick="openOv('ov-support');return false">Contact us</a>
+        <a href="#" data-action="open-support">Contact us</a>
         <a href="#faq">Questions</a>
         <a id="footWhatsapp" href="#">WhatsApp</a>
       </div>
@@ -285,17 +285,17 @@
 </footer>
 
 <!-- ═══════════════════════ AUTH MODAL ═══════════════════════ -->
-<div class="overlay" id="ov-auth" onclick="if(event.target===this)closeAll()">
+<div class="overlay" id="ov-auth" >
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="authTitle">
     <div class="modal-head">
       <div>
         <h3 id="authTitle">Create your account</h3>
         <p class="hint" style="margin-top:5px" id="authSub">Takes about a minute.</p>
       </div>
-      <button class="x" onclick="closeAll()" aria-label="Close">×</button>
+      <button class="x" data-action="close" aria-label="Close">×</button>
     </div>
 
-    <form id="authForm" onsubmit="return submitAuth(event)">
+    <form id="authForm" data-submit="auth">
       <div class="field">
         <label for="f-phone">Phone number</label>
         <input id="f-phone" name="phone" inputmode="tel" autocomplete="tel" placeholder="0803 111 2222" required>
@@ -310,7 +310,7 @@
         <div class="row-2">
           <div class="field">
             <label for="f-type">You are</label>
-            <select id="f-type" name="type" onchange="toggleFlat()">
+            <select id="f-type" name="type" data-change="toggle-flat">
               <option value="compound">Living in the compound</option>
               <option value="visitor">Visiting / outside</option>
             </select>
@@ -334,14 +334,14 @@
 </div>
 
 <!-- ═══════════════════════ CHECKOUT MODAL ═══════════════════════ -->
-<div class="overlay" id="ov-buy" onclick="if(event.target===this)closeAll()">
+<div class="overlay" id="ov-buy" >
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="buyTitle">
     <div class="modal-head">
       <div>
         <h3 id="buyTitle">Checkout</h3>
         <p class="hint" style="margin-top:5px" id="buySub"></p>
       </div>
-      <button class="x" onclick="closeAll()" aria-label="Close">×</button>
+      <button class="x" data-action="close" aria-label="Close">×</button>
     </div>
 
     <!-- step 1: choose method -->
@@ -367,7 +367,7 @@
         </label>
       </div>
 
-      <button class="btn btn-primary btn-block" id="buyGo" onclick="startPurchase()">Continue</button>
+      <button class="btn btn-primary btn-block" id="buyGo" data-action="start-purchase">Continue</button>
       <p class="hint" style="text-align:center;margin-top:12px">You'll see the account details on the next screen.</p>
     </div>
 
@@ -398,12 +398,12 @@
           </div>
         </div>
 
-        <button class="btn btn-beam btn-sm btn-block" style="margin-bottom:14px" onclick="copyAccount()">Copy account number</button>
+        <button class="btn btn-beam btn-sm btn-block" style="margin-bottom:14px" data-action="copy-account">Copy account number</button>
 
         <div id="manualRef">
           <p class="hint" style="text-align:center">Put this in the transfer narration</p>
           <div class="ref" id="bkRef">—</div>
-          <button class="btn btn-ghost btn-sm btn-block" onclick="copyRef()">Copy reference</button>
+          <button class="btn btn-ghost btn-sm btn-block" data-action="copy-ref">Copy reference</button>
         </div>
       </div>
 
@@ -419,7 +419,7 @@
           <label for="f-hash">Transaction hash</label>
           <input id="f-hash" placeholder="0x…" autocomplete="off">
         </div>
-        <button class="btn btn-beam btn-block" onclick="submitHash()">Submit hash</button>
+        <button class="btn btn-beam btn-block" data-action="submit-hash">Submit hash</button>
       </div>
 
       <div id="proofBox" class="hide" style="margin-top:20px">
@@ -428,7 +428,7 @@
           <input id="f-proof" type="file" accept="image/jpeg,image/png,image/webp">
           <div class="hint">JPG, PNG or WebP, under 5 MB.</div>
         </div>
-        <button class="btn btn-primary btn-block" onclick="uploadProof()">Upload receipt</button>
+        <button class="btn btn-primary btn-block" data-action="upload-proof">Upload receipt</button>
       </div>
 
       <p class="hint" style="text-align:center;margin-top:16px" id="buyFoot">
@@ -440,11 +440,11 @@
 </div>
 
 <!-- ═══════════════════════ SUPPORT MODAL ═══════════════════════ -->
-<div class="overlay" id="ov-support" onclick="if(event.target===this)closeAll()">
+<div class="overlay" id="ov-support" >
   <div class="modal" style="max-width:420px" role="dialog" aria-modal="true">
     <div class="modal-head">
       <div><h3>Talk to us</h3><p class="hint" style="margin-top:5px">Fastest on WhatsApp.</p></div>
-      <button class="x" onclick="closeAll()" aria-label="Close">×</button>
+      <button class="x" data-action="close" aria-label="Close">×</button>
     </div>
     <div class="bank-card">
       <div class="bank-row"><span class="k">Phone</span><span class="v num" id="supPhone">—</span></div>
