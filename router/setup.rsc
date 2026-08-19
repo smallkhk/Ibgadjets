@@ -2,10 +2,13 @@
 # IB Gadgets Telecom — one-time router setup
 # Mikrotik hAP ac² (RBD52G-5HacD2HnD), RouterOS v7
 #
-# Run ONCE on a reset router:
-#   /system reset-configuration no-defaults=yes skip-backup=yes
-#   ... reconnect, upload this file, then:
+# Run ONCE on a router carrying its FACTORY DEFAULT configuration:
+#   /system reset-configuration skip-backup=yes
+#   ... reconnect on 192.168.88.1, upload this file, then:
 #   /import setup.rsc
+#
+# Note there is no no-defaults=yes. This file builds on defconf rather
+# than replacing it — see the bridge section below for why.
 #
 # Then edit and import router-sync.rsc, which creates the polling script.
 #
@@ -14,23 +17,25 @@
 #   ether2..5     = LAN
 #   wlan1 (2.4G)  = IB Gadgets
 #   wlan2 (5G)    = IB Gadgets 5G
-#   hotspot subnet 10.5.50.0/24
+#   hotspot subnet 192.168.88.0/24 (defconf, inherited)
 # =====================================================================
 
 # ---------------------------------------------------------------------
 # Bridge and interfaces
-# ---------------------------------------------------------------------
-/interface bridge
-add name=bridge-hotspot protocol-mode=none comment="IB Gadgets clients"
-
-/interface bridge port
-add bridge=bridge-hotspot interface=ether2
-add bridge=bridge-hotspot interface=ether3
-add bridge=bridge-hotspot interface=ether4
-add bridge=bridge-hotspot interface=ether5
-add bridge=bridge-hotspot interface=wlan1
-add bridge=bridge-hotspot interface=wlan2
-
+#
+# This file now builds ON TOP OF the factory default configuration
+# instead of replacing it. Do NOT reset with no-defaults=yes.
+#
+# The earlier version created its own bridge-hotspot on 10.5.50.0/24 and
+# moved every port onto it. That worked, but it meant a reset wiped the
+# addressing, the pool and the DHCP server and left the hotspot server
+# marked invalid with no obvious cause — which is exactly what happened
+# on the live router after a kernel panic. Defconf already gives us a
+# bridge with every LAN port and both radios in it, an address, a pool
+# and a working DHCP server. Building on that means a reset leaves far
+# less to put back, and what is left is the part this file adds.
+#
+# So: no bridge is created here, and no ports are moved.
 /ip dhcp-client
 add interface=ether1 disabled=no comment="Starlink uplink"
 
@@ -49,18 +54,17 @@ set wlan2 mode=ap-bridge band=5ghz-a/n/ac channel-width=20/40/80mhz-eeeC ssid="I
     disabled=no wireless-protocol=802.11 country=nigeria distance=indoors
 
 # ---------------------------------------------------------------------
-# Addressing
+# Addressing — inherited, not created
+#
+# Defconf already supplies all of this:
+#   bridge            192.168.88.1/24
+#   pool default-dhcp 192.168.88.10-192.168.88.254
+#   dhcp server       defconf, on bridge
+#
+# Nothing to add. Confirm it with /ip address print before going on; if
+# the bridge has no address the hotspot server will come up flagged I for
+# invalid and no amount of hotspot configuration will fix it.
 # ---------------------------------------------------------------------
-/ip address
-add address=10.5.50.1/24 interface=bridge-hotspot network=10.5.50.0
-
-/ip pool
-add name=hs-pool ranges=10.5.50.10-10.5.50.254
-
-/ip dhcp-server
-add address-pool=hs-pool interface=bridge-hotspot name=hs-dhcp disabled=no lease-time=1h
-/ip dhcp-server network
-add address=10.5.50.0/24 gateway=10.5.50.1 dns-server=10.5.50.1
 
 /ip dns
 set allow-remote-requests=yes servers=1.1.1.1,8.8.8.8
@@ -78,12 +82,12 @@ add chain=srcnat out-interface=ether1 action=masquerade comment="ibg nat"
 # by the account disappearing from the sync list, not by the cookie.
 # ---------------------------------------------------------------------
 /ip hotspot profile
-add name=ibg-hs hotspot-address=10.5.50.1 dns-name=wifi.ibphone.eclipselivecam.online \
-    html-directory=hotspot login-by=mac-cookie,http-chap \
+add name=ibg-hs hotspot-address=192.168.88.1 dns-name=wifi.ibphone.eclipselivecam.online \
+    html-directory=flash/hotspot login-by=mac-cookie,http-chap \
     use-radius=no
 
 /ip hotspot
-add name=ibg address-pool=hs-pool interface=bridge-hotspot profile=ibg-hs \
+add name=ibg address-pool=default-dhcp interface=bridge profile=ibg-hs \
     addresses-per-mac=2 idle-timeout=5m keepalive-timeout=2m disabled=no
 
 # Long on purpose. The cookie is convenience, not access control — it
@@ -147,13 +151,13 @@ add dst-host=ibphone.eclipselivecam.online action=accept comment="ibg site"
 # to actually cut it off.
 # ---------------------------------------------------------------------
 /ip firewall mangle
-add chain=prerouting in-interface=bridge-hotspot ttl=equal:63 \
+add chain=prerouting in-interface=bridge ttl=equal:63 \
     action=add-src-to-address-list address-list=ibg-tethered address-list-timeout=10m \
     comment="ibg anti-share: 64 minus one hop"
-add chain=prerouting in-interface=bridge-hotspot ttl=equal:127 \
+add chain=prerouting in-interface=bridge ttl=equal:127 \
     action=add-src-to-address-list address-list=ibg-tethered address-list-timeout=10m \
     comment="ibg anti-share: 128 minus one hop (Windows)"
-add chain=prerouting in-interface=bridge-hotspot ttl=equal:254 \
+add chain=prerouting in-interface=bridge ttl=equal:254 \
     action=add-src-to-address-list address-list=ibg-tethered address-list-timeout=10m \
     comment="ibg anti-share: 255 minus one hop"
 
@@ -165,10 +169,10 @@ add chain=prerouting in-interface=bridge-hotspot ttl=equal:254 \
 # site reads; they do not need these.
 #
 # Enable all three together, or none of them.
-add chain=prerouting in-interface=bridge-hotspot ttl=equal:63 \
+add chain=prerouting in-interface=bridge ttl=equal:63 \
     action=mark-packet new-packet-mark=ibg-tether passthrough=yes disabled=yes \
     comment="ibg anti-share mark (enable with the drop rule)"
-add chain=prerouting in-interface=bridge-hotspot ttl=equal:127 \
+add chain=prerouting in-interface=bridge ttl=equal:127 \
     action=mark-packet new-packet-mark=ibg-tether passthrough=yes disabled=yes \
     comment="ibg anti-share mark (enable with the drop rule)"
 
@@ -192,7 +196,12 @@ set www disabled=yes
 set api disabled=yes
 set api-ssl disabled=yes
 set ssh port=22222
-set winbox address=10.5.50.0/24
+# Both subnets, and the second one is not optional if you ever want to
+# manage this router from anywhere but the compound. 192.168.216.0/24 is
+# the Back To Home tunnel — leave it out and enabling this line locks you
+# out of your own router the moment you walk off site. Check the real
+# subnet with /ip address print if BTH was set up differently.
+set winbox address=192.168.88.0/24,192.168.216.0/24
 
 /ip firewall filter
 add chain=input in-interface=ether1 action=drop comment="ibg: nothing from the internet side" \
