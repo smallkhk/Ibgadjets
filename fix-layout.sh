@@ -50,6 +50,15 @@ say  "Assuming this is the document root for your site."
 say  "If https://yourdomain/ does NOT serve files from here, stop now."
 
 # ---------------------------------------------------------------------
+if [ -f "$DOC/private/config.php" ] && [ -f "$PARENT/private/config.php" ]; then
+  step "STOP"
+  say "  Two config.php files exist and I cannot tell which one is live:"
+  say "    $DOC/private/config.php"
+  say "    $PARENT/private/config.php"
+  say "  Delete the one you do not want, then run this again."
+  exit 1
+fi
+
 step "1. Move private/ out of the web root"
 if [ -d "$DOC/private" ]; then
   if [ -e "$PARENT/private" ]; then
@@ -76,7 +85,27 @@ else
 fi
 
 # ---------------------------------------------------------------------
-step "3. Promote the site files out of public_html/"
+step "2b. Move tests/ out of the web root"
+if [ -d "$DOC/tests" ]; then
+  if [ -e "$PARENT/tests" ]; then
+    say "  ! $PARENT/tests already exists — leaving both alone."
+  else
+    run "mv '$DOC/tests' '$PARENT/tests'"
+  fi
+else
+  say "  already out of the web root"
+fi
+
+# ---------------------------------------------------------------------
+step "3. Promote the site files up to the docroot"
+NAME="$(basename "$DOC")"
+if [ -d "$DOC/$NAME" ]; then
+  # The home-directory package was extracted inside the docroot instead
+  # of beside it, so the site sits in ~/NAME/NAME. Nothing serves that.
+  say "  found $NAME/ inside $NAME/ — the zip went one level too deep"
+  run "( shopt -s dotglob nullglob; mv '$DOC/$NAME'/* '$DOC'/ )"
+  run "rmdir '$DOC/$NAME'"
+fi
 if [ -d "$DOC/public_html" ]; then
   say "  The docroot IS the public folder here, so public_html/ is one"
   say "  level too deep. Replacing the loose copies with its contents."
