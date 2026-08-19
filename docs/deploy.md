@@ -205,14 +205,14 @@ Edit `router/router-sync.rsc` — **one line**:
 `ibgUrl` already points at
 `https://ibphone.eclipselivecam.online/api/router-sync.php`.
 
-Upload, then:
+**Do not `/import` it.** Paste `router/ibg-sync-source.txt` into
+Winbox → System → Scripts → Add instead, named `ibg-sync`, with the
+read/write/policy/test/sensitive policies ticked. RouterOS's importer
+cannot be trusted with a `source={ }` block containing nested braces and
+`$variables`: it fails silently and the script simply never appears.
 
-```
-/import router-sync.rsc
-```
-
-That defines the script. The scheduler entry was already created by
-`setup.rsc`, so it starts running within a minute.
+The scheduler entry was already created by `setup.rsc`, so once the
+script exists it starts running within a minute.
 
 ### Remote access to the router (free, do this before you leave site)
 

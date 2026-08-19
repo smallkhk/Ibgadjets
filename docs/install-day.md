@@ -124,16 +124,32 @@ on mobile data, and connect through the app.** That is the only test that
 proves it works through CGNAT. If you skip it you will find out the hard
 way, from somewhere else.
 
-### 7. Import the sync script
+### 7. Install the sync script — paste it, do not import it
 
-Edit `router/router-sync.rsc` — your real URL and the sync key from
-`private/config.php`, pasted exactly. Then:
+Open `router/ibg-sync-source.txt`. In Winbox:
+
+**System → Scripts → Add (+)**
+
+- **Name:** `ibg-sync` (exactly — the scheduler calls it by name)
+- **Policy:** tick `read`, `write`, `policy`, `test`, `sensitive`
+- **Source:** paste the whole body, then edit the `ibgKey` line with the
+  output of `php ~/private/init-config.php --show-key` on the server
+- **OK**
+
+Confirm it exists before running it:
 
 ```
-/import router-sync.rsc
+/system script print
 /system script run ibg-sync
 /log print where message~"ibg-sync"
 ```
+
+**Do not `/import router-sync.rsc`.** That file wraps the same code in a
+`source={ }` block, and RouterOS's importer does not survive 20 nested
+braces with comments and `$variables` inside. It fails silently — the
+script never appears, and the first sign is `no such item` when you or
+the scheduler try to run it. The .rsc is kept only as the readable copy
+of the script.
 
 On the website: **Admin → Overview → Router conversation** should start
 filling in every minute.

@@ -1,36 +1,30 @@
 # =====================================================================
-# IB Gadgets Telecom — router sync
-# RouterOS v7 (Mikrotik hAP ac²)
+# IB Gadgets Telecom — ibg-sync
 #
-# Runs every 60s from /system scheduler. Pulls desired state from the
-# site, reconciles the local hotspot users against it, and posts back
-# what it applied plus per-user usage.
+# PASTE THIS INTO WINBOX, do not /import it.
 #
-# Reconcile, do not apply deltas: whatever the site lists should exist,
-# anything else carrying our comment marker should not. A missed reply,
-# a reboot or a factory reset all heal on the next pass.
+#   Winbox > System > Scripts > Add (+)
+#     Name:   ibg-sync
+#     Policy: tick read, write, policy, test, sensitive
+#     Source: paste everything below this comment block
+#     OK
 #
-# INSTALL — DO NOT /import THIS FILE
+# WHY NOT /import
 #
-#   Use router/ibg-sync-source.txt instead: Winbox > System > Scripts >
-#   Add, paste the body into the Source box, name it ibg-sync, and tick
-#   the read/write/policy/test/sensitive policies.
+# An .rsc file wrapping this in `source={ ... }` asks the importer to
+# swallow 20 nested braces, 36 comment lines and 75 $variables. RouterOS
+# does not reliably survive that: the script silently fails to appear and
+# `/system script run ibg-sync` then reports "no such item". Pasting into
+# the Source box has none of those problems.
 #
-#   /import cannot be trusted with what follows. The source={ } block
-#   contains 20 nested braces, 36 comment lines and 75 $variables, and
-#   RouterOS's importer does not survive that combination: the script
-#   silently never appears, and the first sign of trouble is
-#   "no such item" from /system script run ibg-sync.
+# EDIT ONE LINE before saving: ibgKey, from the server:
+#   php ~/private/init-config.php --show-key
 #
-#   This file is kept as the readable, reviewable copy of the script and
-#   as the source ibg-sync-source.txt is generated from.
-#
-# It must never crash the scheduler. Everything is wrapped in :do/on-error.
+# Then check it exists and works:
+#   /system script print
+#   /system script run ibg-sync
+#   /log print where message~"ibg-sync"
 # =====================================================================
-
-/system script
-add name="ibg-sync" dont-require-permissions=no owner=admin \
-    policy=read,write,policy,test,sensitive source={
 
 :local ibgUrl "https://ibphone.eclipselivecam.online/api/router-sync.php"
 :local ibgKey "CHANGE-ME-64-hex-characters"
@@ -190,6 +184,4 @@ add name="ibg-sync" dont-require-permissions=no owner=admin \
 
 } on-error={
     :log warning "ibg-sync: cycle failed, will retry next minute"
-}
-
 }
