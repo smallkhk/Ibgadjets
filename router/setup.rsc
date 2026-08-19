@@ -104,11 +104,18 @@ remove [find name="default-trial"]
 # Unpaid users must be able to reach the site to sign up and pay, and
 # nothing else. Keep this list short — every entry is free internet.
 # ---------------------------------------------------------------------
+# Every entry here is free internet for anyone who discovers it, so the
+# list is deliberately as short as it can be. The site now serves its own
+# fonts, so no third-party host is needed to render a styled page.
 /ip hotspot walled-garden
-add dst-host=ibphone.eclipselivecam.online            comment="ibg site"
-add dst-host="*.ibphone.eclipselivecam.online"        comment="ibg site"
-add dst-host="*.opayweb.com"         comment="opay checkout"
-add dst-host="*.opaycheckout.com"    comment="opay checkout"
+add dst-host=ibphone.eclipselivecam.online     comment="ibg site"
+add dst-host="*.ibphone.eclipselivecam.online" comment="ibg site"
+
+# OPay is only reachable once you actually switch OPay on. Until then
+# these two are surface with no purpose — enable them at the same time
+# you set opay_enabled=1.
+add dst-host="*.opayweb.com"      comment="opay checkout" disabled=yes
+add dst-host="*.opaycheckout.com" comment="opay checkout" disabled=yes
 
 # The site's own IP, so HTTPS to it works before login. The dst-host
 # entries above only cover plain HTTP, because the hotspot cannot read a
