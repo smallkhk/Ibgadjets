@@ -407,6 +407,17 @@ async function uploadProof() {
   }
 }
 
+async function sentNoProof() {
+  if (!ORDER) { return; }
+  try {
+    const res = await API.post('api/payments.php?action=sent', { reference: ORDER.reference });
+    closeAll();
+    toast(res.message);
+  } catch (err) {
+    toast(err.message, true);
+  }
+}
+
 async function submitHash() {
   const hash = document.getElementById('f-hash').value.trim();
   if (!hash) { toast('Paste the transaction hash', true); return; }
@@ -442,6 +453,7 @@ on('start-purchase', () => startPurchase());
 on('copy-ref',       () => copyRef());
 on('copy-account',   () => copyAccount());
 on('upload-proof',   () => uploadProof());
+on('sent-no-proof',  () => sentNoProof());
 on('submit-hash',    () => submitHash());
 on('auth',           () => submitAuth());
 on('toggle-flat',    () => toggleFlat());

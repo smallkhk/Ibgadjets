@@ -72,6 +72,39 @@ want "manual path chosen" "$(jq_get "$BUY" automatic)" "false"
 REF=$(jq_get "$BUY" reference)
 has "reference issued" "$REF" "IB-"
 
+# ----------------------------------------------------------- the receipt
+# This is how the business gets paid, and it had no coverage at all until
+# a customer reported that uploading did nothing.
+say "Receipt upload"
+
+# A real 1x1 PNG. The server decides type by magic bytes, so a file that
+# merely ends in .png would prove nothing.
+php -r 'file_put_contents("/tmp/ibg-e2e-receipt.png", base64_decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="));'
+printf 'not an image at all' > /tmp/ibg-e2e-fake.png
+
+BADUP=$(curl -s -b "$CJ" -X POST "$BASE/api/payments.php?action=proof" \
+  -H "X-CSRF-Token: $CSRF" -F "reference=$REF" -F "proof=@/tmp/ibg-e2e-fake.png")
+want "a renamed text file is refused" "$(jq_get "$BADUP" ok)" "false"
+
+GOODUP=$(curl -s -b "$CJ" -X POST "$BASE/api/payments.php?action=proof" \
+  -H "X-CSRF-Token: $CSRF" -F "reference=$REF" -F "proof=@/tmp/ibg-e2e-receipt.png")
+want "a real screenshot uploads" "$(jq_get "$GOODUP" ok)" "true"
+
+# The captive-portal browser has no working file picker, so this path is
+# the only way some customers can tell you they have paid.
+SENT=$(curl -s -b "$CJ" -X POST "$BASE/api/payments.php?action=sent" \
+  -H "Content-Type: application/json" -H "X-CSRF-Token: $CSRF" \
+  -d "{\"reference\":\"$REF\"}")
+want "no-receipt confirmation accepted" "$(jq_get "$SENT" ok)" "true"
+
+# Somebody else's reference must not be touchable.
+OTHER=$(curl -s -b "$CJ" -X POST "$BASE/api/payments.php?action=sent" \
+  -H "Content-Type: application/json" -H "X-CSRF-Token: $CSRF" \
+  -d '{"reference":"IB-NOPE1"}')
+want "another reference is refused" "$(jq_get "$OTHER" ok)" "false"
+
+rm -f /tmp/ibg-e2e-receipt.png /tmp/ibg-e2e-fake.png
+
 say "Router must NOT see an unpaid customer"
 SYNC=$(curl -s "$BASE/api/router-sync.php" -H "X-Sync-Key: $SYNC_KEY")
 if printf '%s' "$SYNC" | grep -q "$PHONE"; then bad "unpaid customer is absent" "found $PHONE"; else ok "unpaid customer is absent"; fi

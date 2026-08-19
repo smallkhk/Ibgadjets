@@ -490,11 +490,29 @@
 
       <div id="proofBox" class="hide" style="margin-top:20px">
         <div class="field">
-          <label for="f-proof">Receipt screenshot</label>
-          <input id="f-proof" type="file" accept="image/jpeg,image/png,image/webp">
-          <div class="hint">JPG, PNG or WebP, under 5 MB.</div>
+          <label for="f-proof">Receipt screenshot <span class="hint">(optional)</span></label>
+          <!-- accept="image/*" on purpose. A narrow list makes some
+               Android pickers grey out the gallery entirely, and iOS
+               needs it broad to offer HEIC photos at all — those are
+               caught server-side with a message that says what to do. -->
+          <input id="f-proof" type="file" accept="image/*">
+          <div class="hint">A screenshot uploads faster than a photo of the screen.</div>
         </div>
         <button class="btn btn-primary btn-block" data-action="upload-proof">Upload receipt</button>
+
+        <!-- The receipt was never actually required: the payment is
+             already waiting for approval the moment the order is made.
+             But the screen looked like a wall, and customers inside the
+             hotspot's mini-browser — which has no working file picker —
+             had no way past it and simply gave up. -->
+        <button class="btn btn-ghost btn-block" style="margin-top:10px" data-action="sent-no-proof">
+          I have sent the money — no receipt
+        </button>
+        <p class="hint" style="margin-top:12px">
+          If the file button does nothing, you are in the WiFi sign-in window, which
+          cannot attach files. Either tap the button above, or open
+          <b>ibphone.eclipselivecam.online</b> in Chrome or Safari and upload there.
+        </p>
       </div>
 
       <p class="hint" style="text-align:center;margin-top:16px" id="buyFoot">

@@ -22,6 +22,18 @@ switch ($action) {
         $customer = require_customer();
         rate_limit('proof:' . $customer['id'], 10, 600);
 
+        // post_max_size is checked BEFORE anything else, because when a
+        // request exceeds it PHP silently discards the entire body —
+        // $_POST and $_FILES both come through empty. The customer then
+        // gets "Missing field: reference" for having attached a photo
+        // that was slightly too big, which is impossible to act on.
+        //
+        // The tell is a request that announced a body and arrived with
+        // nothing in it.
+        if (empty($_POST) && empty($_FILES) && (int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > 0) {
+            fail('That image is too large for this server to accept. Send a screenshot rather than a photo of the screen.', 413);
+        }
+
         $reference = (string) want('reference');
         $tx = one("SELECT * FROM transactions WHERE reference = ? AND customer_id = ?",
             [$reference, $customer['id']]);
@@ -33,7 +45,7 @@ switch ($action) {
             fail('That payment is already confirmed', 409);
         }
         if (!isset($_FILES['proof']) || $_FILES['proof']['error'] !== UPLOAD_ERR_OK) {
-            fail('Attach the receipt screenshot', 422);
+            fail(upload_error_message($_FILES['proof']['error'] ?? UPLOAD_ERR_NO_FILE), 422);
         }
 
         $stored = store_proof($_FILES['proof'], $GLOBALS['CONFIG']['upload_dir']);
@@ -42,6 +54,40 @@ switch ($action) {
             [$stored, $tx['id']]);
 
         ok(['message' => 'Receipt received. We confirm it and your plan goes live — usually within a few minutes.']);
+
+    // -----------------------------------------------------------------
+    // "I have sent the money, but I cannot attach a receipt."
+    //
+    // The order is already pending the moment it is created, so this
+    // changes nothing about whether the admin sees it — it flags WHICH
+    // pending rows the customer has actually acted on. Without it every
+    // abandoned checkout looks identical to a real payment waiting for
+    // approval.
+    //
+    // It exists because the receipt was never truly required, but the
+    // checkout screen looked like it was: customers inside the hotspot's
+    // captive-portal browser have no working file picker, hit what looked
+    // like a wall, and stopped.
+    case 'sent':
+        require_method('POST');
+        csrf_check();
+        $customer = require_customer();
+        rate_limit('sent:' . $customer['id'], 20, 600);
+
+        $tx = one("SELECT * FROM transactions WHERE reference = ? AND customer_id = ?",
+            [(string) want('reference'), $customer['id']]);
+
+        if (!$tx) {
+            fail('Unknown reference', 404);
+        }
+        if ($tx['status'] === 'success') {
+            fail('That payment is already confirmed', 409);
+        }
+
+        q("UPDATE transactions SET note = ?, status = 'pending' WHERE id = ?",
+            ['Customer confirmed sending — no receipt attached', $tx['id']]);
+
+        ok(['message' => 'Noted. We will check the account and turn your plan on — usually within a few minutes.']);
 
     // -----------------------------------------------------------------
     // USDT — customer pastes the hash, an admin (or the verifier cron)
@@ -196,6 +242,41 @@ function opay_handle_callback(): never
 
 
 /**
+ * Say what actually went wrong with an upload.
+ *
+ * Every one of these used to surface as "Attach the receipt screenshot",
+ * which is wrong and unhelpful in most cases: the customer DID attach
+ * one, and the server threw it away for a reason only the server knew.
+ * They then retry the same file forever and eventually give up — and a
+ * customer who cannot deliver a receipt is a customer who cannot pay.
+ *
+ * The size and tmp-dir cases in particular are server configuration, not
+ * anything the customer can fix, so the message says so rather than
+ * blaming them.
+ */
+function upload_error_message(int $code): string
+{
+    switch ($code) {
+        case UPLOAD_ERR_INI_SIZE:
+        case UPLOAD_ERR_FORM_SIZE:
+            // php.ini upload_max_filesize. Phone photos are routinely
+            // 3-8MB and shared hosting often ships a 2MB cap.
+            return 'That image is bigger than this server accepts. Send a screenshot rather than a photo, or ask us to raise the limit.';
+        case UPLOAD_ERR_PARTIAL:
+            return 'The upload was cut off. Try again — a stronger signal helps.';
+        case UPLOAD_ERR_NO_FILE:
+            return 'Attach the receipt screenshot';
+        case UPLOAD_ERR_NO_TMP_DIR:
+        case UPLOAD_ERR_CANT_WRITE:
+            return 'The server could not save that file. This is our fault, not yours — please tell us.';
+        case UPLOAD_ERR_EXTENSION:
+            return 'The server refused that upload. Please tell us so we can fix it.';
+        default:
+            return 'That upload did not go through. Please try again.';
+    }
+}
+
+/**
  * Write an uploaded receipt to disk, outside the document root.
  *
  * Receipt upload is the single most dangerous feature on this site, so:
@@ -219,6 +300,16 @@ function store_proof(array $file, string $dir): string
         'image/webp' => 'webp',
     ];
     if (!isset($allowed[$mime])) {
+        // HEIC is what an iPhone camera produces by default, so anyone
+        // photographing a receipt on another screen hits this. Naming it
+        // is the difference between a customer who takes a screenshot
+        // instead and one who retries the same file until they give up.
+        if ($mime === 'image/heic' || $mime === 'image/heif') {
+            fail('iPhone photos (HEIC) are not supported. Take a screenshot of the transfer instead, or set Camera > Formats to "Most Compatible".', 415);
+        }
+        if (str_starts_with($mime, 'video/')) {
+            fail('That is a video. Send a screenshot of the transfer.', 415);
+        }
         fail('Upload a screenshot of the receipt (JPG, PNG or WebP)', 415);
     }
     // Second opinion: a real raster image, not something wearing the header.
