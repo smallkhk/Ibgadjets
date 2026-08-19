@@ -172,9 +172,13 @@ Reconnect with Winbox (MAC-connect — there is no IP yet), then upload
 /import setup.rsc
 ```
 
-Before importing, edit these in the file:
+The domain is already set to `ibphone.eclipselivecam.online` throughout —
+`set-domain.sh` did that. Only change it if you switch domains, and use
+that script rather than editing by hand, because the walled garden breaks
+silently if one of the six references is missed.
 
-- `dst-host=ibgadgets.ng` — your real domain, in all four walled-garden lines
+Optionally edit before importing:
+
 - `ssid=` — if you want a different network name
 - `/ip service set ssh port=` and the winbox address range
 
@@ -185,18 +189,21 @@ replacing the stock one. It is fully self-contained — no CDN fonts, no
 external images — because a customer who has not paid yet cannot reach the
 internet to load them.
 
-Check that `md5.js` is still in that folder; RouterOS ships it and the
-CHAP login needs it.
+Check that `md5.js` is still in that folder. RouterOS ships it, and the
+CHAP block needs it — the page only enables CHAP when the router offers
+it, so a missing md5.js means passwords cross the air in clear rather
+than a visible error.
 
-Edit the "Create account & buy data" link in that file to your real domain
-if you changed it.
+The "Create account & buy data" link already points at your domain.
 
 ### The sync script
 
-Edit `router/router-sync.rsc`:
+Edit `router/router-sync.rsc` — **one line**:
 
-- `ibgUrl` — `https://yourdomain/api/router-sync.php`
-- `ibgKey` — the sync key from `private/config.php`, exactly
+- `ibgKey` — the sync key from `private/config.php`, pasted exactly
+
+`ibgUrl` already points at
+`https://ibphone.eclipselivecam.online/api/router-sync.php`.
 
 Upload, then:
 
