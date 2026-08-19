@@ -1,0 +1,20 @@
+# TEST 1 — fetch only. No JSON parsing at all.
+# Paste as a NEW script named ibg-test, policy: read,write,test,sensitive
+# Run it. If the router survives, the fetch is not the problem.
+
+:local ibgUrl "https://ibphone.eclipselivecam.online/api/router-sync.php"
+:local ibgKey "21e1e9a7a22d47e43e9fd75d52b998821336d3c99e653d3747cb57069e6aab55"
+
+:do {
+    :local res [/tool fetch url=$ibgUrl \
+        http-method=get \
+        http-header-field=("X-Sync-Key: " . $ibgKey) \
+        output=user as-value]
+    :log info ("ibg-test1: status=" . ($res->"status"))
+    :local d ($res->"data")
+    :log info ("ibg-test1: bytes=" . [:len $d])
+    :log info ("ibg-test1: head=" . [:pick $d 0 30])
+    :log info "ibg-test1: SURVIVED"
+} on-error={
+    :log warning "ibg-test1: error (but no crash)"
+}

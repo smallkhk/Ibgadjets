@@ -70,7 +70,6 @@
 
     :local users ($doc->"users")
     :local blocked ($doc->"blocked_macs")
-    :local policy ($doc->"tether_policy")
 
     :local wanted [:toarray ""]
     :local applied ""
@@ -79,7 +78,7 @@
     # 2. Create or update every account the site listed
     # -----------------------------------------------------------------
     :foreach u in=$users do={
-        :local name  ($u->"username")
+        :local uname ($u->"username")
         :local pass  ($u->"password")
         :local rate  ($u->"rate_limit")
         :local share ($u->"shared_users")
@@ -90,15 +89,15 @@
         :local bytes 0
         :if ([:typeof $dmb] = "num") do={ :set bytes ($dmb * 1048576) }
 
-        :set ($wanted->$name) true
+        :set ($wanted->$uname) true
 
-        :local found [/ip hotspot user find where name=$name]
+        :local found [/ip hotspot user find where name=$uname]
 
         :if ([:len $found] = 0) do={
-            /ip hotspot user add name=$name password=$pass \
+            /ip hotspot user add name=$uname password=$pass \
                 rate-limit=$rate shared-users=$share \
                 limit-bytes-total=$bytes comment=$mark
-            :log info ("ibg-sync: provisioned " . $name)
+            :log info ("ibg-sync: provisioned " . $uname)
         } else={
             # Reset the byte counter when the site's remaining figure has
             # moved ahead of ours — that is a fresh bundle, not the same one.
@@ -157,21 +156,21 @@
         :local bout  [/ip hotspot user get $h bytes-out]
         :local mb    (($bin + $bout) / 1048576)
 
-        :local mac ""
-        :local ip ""
+        :local hmac ""
+        :local haddr ""
         :local up 0
         :local tether 0
 
         :local act [/ip hotspot active find where user=$hname]
         :if ([:len $act] > 0) do={
-            :set mac [/ip hotspot active get [:pick $act 0] mac-address]
-            :set ip  [/ip hotspot active get [:pick $act 0] address]
+            :set hmac [/ip hotspot active get [:pick $act 0] mac-address]
+            :set haddr [/ip hotspot active get [:pick $act 0] address]
             :set up  [/ip hotspot active get [:pick $act 0] uptime]
 
             # TTL anomaly seen from this address in the last window means
             # the traffic passed through a second router — a phone
             # sharing its connection. See docs/anti-sharing.md.
-            :if ([:len [/ip firewall address-list find where list="ibg-tethered" and address=$ip]] > 0) do={
+            :if ([:len [/ip firewall address-list find where list="ibg-tethered" and address=$haddr]] > 0) do={
                 :set tether 1
             }
         }
@@ -179,8 +178,8 @@
         :if ([:len $usage] > 0) do={ :set usage ($usage . ",") }
         :set usage ($usage . "{\"username\":\"" . $hname . "\"" . \
             ",\"used_mb\":" . $mb . \
-            ",\"mac\":\"" . $mac . "\"" . \
-            ",\"ip\":\"" . $ip . "\"" . \
+            ",\"mac\":\"" . $hmac . "\"" . \
+            ",\"ip\":\"" . $haddr . "\"" . \
             ",\"tethered_hits\":" . $tether . "}")
     }
 

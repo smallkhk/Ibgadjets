@@ -1,0 +1,36 @@
+# TEST 3 — parse, then create ONE hotspot user. No loops, no arrays.
+# Only run this if TEST 2 survived.
+# If the router reboots here, it is the hotspot user commands.
+
+:local ibgUrl "https://ibphone.eclipselivecam.online/api/router-sync.php"
+:local ibgKey "21e1e9a7a22d47e43e9fd75d52b998821336d3c99e653d3747cb57069e6aab55"
+
+:do {
+    :local res [/tool fetch url=$ibgUrl \
+        http-method=get \
+        http-header-field=("X-Sync-Key: " . $ibgKey) \
+        output=user as-value]
+    :local doc [:deserialize from=json value=($res->"data")]
+    :local users ($doc->"users")
+
+    :foreach u in=$users do={
+        :local uname ($u->"username")
+        :local upass ($u->"password")
+        :local urate ($u->"rate_limit")
+        :local ushare ($u->"shared_users")
+        :local umb ($u->"data_mb")
+        :local ubytes 0
+        :if ([:typeof $umb] = "num") do={ :set ubytes ($umb * 1048576) }
+
+        :log info ("ibg-test3: about to add " . $uname)
+        :if ([:len [/ip hotspot user find where name=$uname]] = 0) do={
+            /ip hotspot user add name=$uname password=$upass \
+                rate-limit=$urate shared-users=$ushare \
+                limit-bytes-total=$ubytes comment="ibg"
+        }
+        :log info ("ibg-test3: added " . $uname)
+    }
+    :log info "ibg-test3: SURVIVED"
+} on-error={
+    :log warning "ibg-test3: error (but no crash)"
+}
