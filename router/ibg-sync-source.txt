@@ -167,8 +167,15 @@
                 rate-limit=$prate shared-users=$pshare
             :log info ("ibg-sync: profile created " . $pname)
         } else={
-            /ip hotspot user profile set $pfound \
-                rate-limit=$prate shared-users=$pshare
+            # Only write when something actually differs. Rewriting
+            # identical values every 60 seconds is thousands of config
+            # writes a day onto 16MB of NAND, for no change at all.
+            :local pid [:pick $pfound 0]
+            :if ([/ip hotspot user profile get $pid rate-limit] != $prate or \
+                 [/ip hotspot user profile get $pid shared-users] != $pshare) do={
+                /ip hotspot user profile set $pid \
+                    rate-limit=$prate shared-users=$pshare
+            }
         }
     }
 
@@ -190,17 +197,41 @@
 
         :local found [/ip hotspot user find where name=$uname]
 
+        # The site sends what is LEFT. RouterOS measures what has been
+        # USED. Writing "left" straight into limit-bytes-total counts the
+        # same megabyte twice: the cap falls by 1MB on every poll while
+        # the router's own counter climbs by 1MB, and a 500MB customer is
+        # cut off at around 250MB.
+        #
+        # So the cap is what they have already spent plus what remains.
+        # It stays correct as usage accrues, and it survives the counter
+        # being reset — a reset makes used 0 and the cap becomes exactly
+        # the remaining figure, which is right.
+        :if ($bytes > 0 and [:len $found] > 0) do={
+            :local fid [:pick $found 0]
+            :local used ([/ip hotspot user get $fid bytes-in] + [/ip hotspot user get $fid bytes-out])
+            :set bytes ($bytes + $used)
+        }
+
         :if ([:len $found] = 0) do={
             /ip hotspot user add name=$uname password=$pass \
                 profile=$uprof \
                 limit-bytes-total=$bytes comment=$mark
             :log info ("ibg-sync: provisioned " . $uname)
         } else={
-            # Reset the byte counter when the site's remaining figure has
-            # moved ahead of ours — that is a fresh bundle, not the same one.
-            /ip hotspot user set $found password=$pass \
-                profile=$uprof \
-                limit-bytes-total=$bytes comment=$mark disabled=no
+            # Same reasoning as the profiles above: write only on a real
+            # difference. With the cap computed as used+remaining it
+            # barely moves between polls, so a settled customer costs no
+            # writes at all.
+            :local fid [:pick $found 0]
+            :if ([/ip hotspot user get $fid limit-bytes-total] != $bytes or \
+                 [/ip hotspot user get $fid profile] != $uprof or \
+                 [/ip hotspot user get $fid password] != $pass or \
+                 [/ip hotspot user get $fid disabled] = true) do={
+                /ip hotspot user set $fid password=$pass \
+                    profile=$uprof \
+                    limit-bytes-total=$bytes comment=$mark disabled=no
+            }
         }
 
         :if ([:len $applied] > 0) do={ :set applied ($applied . ",") }
