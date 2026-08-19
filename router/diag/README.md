@@ -8,15 +8,21 @@ server sends can be blamed for this, so the fault is on the router.
 
 A 60-second scheduler turns one fault into a reboot loop you cannot get
 into the router to fix. Kill it first, every time, before running
-anything here:
+anything here.
+
+Match on what the scheduler *runs*, never on its name. `setup.rsc`
+creates it as `ibg-sync`, but the one on the live router was made by hand
+and is called `ibg-loop` — and `[find name="ibg-sync"]` matches nothing,
+disables nothing, and says nothing while it fails:
 
 ```
-/system scheduler disable [find name="ibg-sync"]
+/system scheduler disable [find on-event~"ibg-sync"]
 /system scheduler print
 ```
 
-`disabled=yes` on the ibg-sync line, or no line at all, and you are safe
-to work.
+Read the printout. `disabled=yes`, or no line at all, and you are safe to
+work. A `RUN-COUNT` that is still climbing means you disabled the wrong
+thing.
 
 ## Step 1 — ask the router why it rebooted
 
@@ -48,7 +54,25 @@ The box has 128 MB of RAM and it ran out. Watchdog was clean, so nothing
 asked for the reboot — the kernel fell over. There are two credible
 causes and they are told apart by measurement, not by argument.
 
-### Hypothesis A — the sync script leaks a little RAM per poll
+### Hypothesis A — the sync script leaks a little RAM per poll — RULED OUT
+
+Measured on the live router, 40 consecutive HTTPS fetches:
+
+```
+START   free=37769216
+pass 1  free=37347328
+...
+pass 20 free=37060608
+END     free=37089280
+```
+
+Flat. It jitters up as well as down, which is what a healthy allocator
+looks like — 600 KB across 40 calls, and none of it cumulative. RouterOS's
+HTTPS fetch is not leaking here, so a slower poll interval would buy
+nothing. The reasoning below is kept because the test is worth repeating
+after a RouterOS upgrade.
+
+The original argument:
 
 RouterOS's HTTPS `/tool fetch` does not always give back everything it
 takes. A few hundred KB per call is invisible on one run and fatal at
@@ -100,18 +124,21 @@ falls is hypothesis B. Cap it:
 - `free-memory` — on an idle hAP ac² running hotspot and both radios,
   expect somewhere around 60–80 MB free. Much under 30 MB at idle and
   the box is over-committed before the script has done anything.
-- `free-hdd-space` — 16 MB of flash total, and each auto-generated
-  `supout.rif` eats 1–3 MB of it. `/file print`, and delete the ones you
-  have already sent to MikroTik.
+- `free-hdd-space` — this board runs permanently near-full and that is
+  normal, not a fault. RouterOS 7.24 is 11.7 MB and the wireless package
+  another 1.8 MB, so 13.5 MB of the 16 MB is the operating system. Under
+  a megabyte free is the resting state, and there are no optional
+  packages to uninstall — `/system package print` on this router lists
+  exactly two, both required.
 
-Free RAM back by dropping packages the build does not use — on this
-router that is usually `ipv6`, `mpls`, `routing` and `ppp`:
+  What it does mean is that an auto-generated `supout.rif` (1–3 MB) has
+  nowhere to go. Turn the automatic dump off so a struggling router does
+  not spend memory building a file it cannot write:
 
-```
-/system package print
-/system package disable ipv6,mpls,routing,ppp
-/system reboot
-```
+  ```
+  /system watchdog set automatic-supout=no
+  /file remove [find name~"supout"]
+  ```
 
 ### If it is the leak — what to change
 
@@ -155,7 +182,8 @@ the log:
 | `test-1-fetch-only.txt` | `/tool fetch` over HTTPS | TLS or DNS. Check `/ip dns` resolves the domain. |
 | `test-2-deserialize.txt` | `:deserialize from=json` | The JSON parser. |
 | `test-3-provision.txt` | one `/ip hotspot user add` | Hotspot commands — usually a `profile=` that does not exist. |
-| `test-4-memory.txt` | 20 fetches, logging free RAM | See hypothesis A above. |
+| `test-4-memory.txt` | 20 fetches, logging free RAM | See hypothesis A above. Ruled out on this router. |
+| `test-5-fullcycle.txt` | the real `ibg-sync`, ten times | Everything after the fetch: parsing, hotspot commands, the POST back. |
 
 Delete `ibg-test` when you are done — it holds the sync key in plain
 text:

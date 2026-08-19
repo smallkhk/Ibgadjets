@@ -1,0 +1,47 @@
+# TEST 5 — the real sync script, ten times, watching memory.
+#
+# Test 4 cleared the HTTPS fetch: 40 calls, free memory flat. So the
+# network half is innocent and the untested half is what comes after —
+# :deserialize, the hotspot user commands, and the POST back.
+#
+# This calls the actual ibg-sync script rather than a copy of it, so
+# whatever it does wrong, it does wrong here too.
+#
+# BEFORE RUNNING — the scheduler must be down, or it fires its own copy
+# mid-test and the numbers mean nothing. Find it by what it runs, not by
+# its name, because the name on this router is ibg-loop:
+#
+#   /system scheduler disable [find on-event~"ibg-sync"]
+#   /system scheduler print
+#
+# Paste as a NEW script named ibg-cycle (not ibg-test — that one still
+# exists). Run it ONCE, from the terminal:
+#
+#   /system script run ibg-cycle
+#   /log print where message~"ibg-cyc"
+#
+# READING IT:
+#   free= steady across ten runs   -> the script is clean, look elsewhere
+#   free= falling every run        -> the leak is after the fetch
+#   router reboots partway         -> note the run number and whether the
+#                                     last log line was a provision
+
+:log info ("ibg-cyc: START free=" . [/system resource get free-memory])
+
+:local i 0
+:while ($i < 10) do={
+    :set i ($i + 1)
+    :do {
+        /system script run ibg-sync
+    } on-error={
+        :log warning ("ibg-cyc: run " . $i . " errored")
+    }
+    :log info ("ibg-cyc: run " . $i . \
+        " free=" . [/system resource get free-memory] . \
+        " hsusers=" . [:len [/ip hotspot user find]] . \
+        " active=" . [:len [/ip hotspot active find]])
+    :delay 3s
+}
+
+:log info ("ibg-cyc: END free=" . [/system resource get free-memory])
+:log info "ibg-cyc: SURVIVED"
