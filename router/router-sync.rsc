@@ -39,6 +39,41 @@ add name="ibg-sync" dont-require-permissions=no owner=admin \
 # Anything you made by hand is left alone.
 :local mark "ibg"
 
+# ---------------------------------------------------------------------
+# RUN LOCK — one cycle at a time, no exceptions.
+#
+# /tool fetch has no timeout in RouterOS. If the host is slow, or the
+# connection stalls, a cycle can outlast the 60-second scheduler. The
+# scheduler does not check: at 60s it starts a second copy, then a third,
+# each holding an open connection and its own buffers. On a 128MB router
+# that ends in an out-of-memory kernel panic — which reboots the box,
+# which starts the scheduler again.
+#
+# This is invisible when you run the script by hand, because by hand you
+# only ever run one at a time. It only appears under the scheduler, under
+# load, which is the worst possible time to find it.
+#
+# The skip counter is the escape hatch. A genuinely wedged fetch would
+# otherwise hold the lock forever and sync would stop for good, silently.
+# After 5 refusals we assume the holder is dead and take the lock.
+# ---------------------------------------------------------------------
+:global ibgBusy
+:global ibgSkips
+
+:if ([:typeof $ibgSkips] != "num") do={ :set ibgSkips 0 }
+
+:if ($ibgBusy = true) do={
+    :set ibgSkips ($ibgSkips + 1)
+    :if ($ibgSkips < 5) do={
+        :log warning ("ibg-sync: previous cycle still running, skipping (" . $ibgSkips . ")")
+        :error "busy"
+    }
+    :log warning "ibg-sync: previous cycle looks wedged, taking the lock"
+}
+
+:set ibgSkips 0
+:set ibgBusy true
+
 :do {
 
     # -----------------------------------------------------------------
@@ -232,5 +267,10 @@ add name="ibg-sync" dont-require-permissions=no owner=admin \
 } on-error={
     :log warning "ibg-sync: cycle failed, will retry next minute"
 }
+
+# Outside the on-error block on purpose: the lock must come off whether
+# the cycle succeeded or failed. Anything that leaves it set stops sync
+# permanently.
+:set ibgBusy false
 
 }

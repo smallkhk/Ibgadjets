@@ -72,7 +72,20 @@ foreach ($bodyLines as $i => $l) {
 }
 $nonblank = array_values(array_filter($bodyLines, fn($l) => trim($l) !== ''));
 if (!str_starts_with(trim($nonblank[0]), ':local ibgUrl')) { fwrite(STDERR, "body does not start with ibgUrl\n"); exit(1); }
-if (trim(end($nonblank)) !== '}') { fwrite(STDERR, "body does not end with the on-error brace\n"); exit(1); }
+// The body must end by releasing the run lock. If the extractor ever cuts
+// short of this line the script still looks fine, installs fine, and runs
+// exactly once — then every later cycle sees a lock nobody will ever drop
+// and skips itself forever, silently.
+if (trim(end($nonblank)) !== ':set ibgBusy false') {
+    fwrite(STDERR, "body does not end by releasing the run lock: " . trim(end($nonblank)) . "\n");
+    exit(1);
+}
+$takes    = substr_count($body, ':set ibgBusy true');
+$releases = substr_count($body, ':set ibgBusy false');
+if ($takes !== 1 || $releases !== 1) {
+    fwrite(STDERR, "run lock must be taken once and released once, got {$takes}/{$releases}\n");
+    exit(1);
+}
 
 file_put_contents($out, $header . $body . "\n");
 echo "Wrote router/ibg-sync-source.txt (", count($bodyLines), " lines of script)\n";
