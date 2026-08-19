@@ -9,22 +9,40 @@
 #     Source: paste everything below this comment block
 #     OK
 #
-# WHY NOT /import
-#
-# An .rsc file wrapping this in `source={ ... }` asks the importer to
-# swallow 20 nested braces, 36 comment lines and 75 $variables. RouterOS
-# does not reliably survive that: the script silently fails to appear and
-# `/system script run ibg-sync` then reports "no such item". Pasting into
-# the Source box has none of those problems.
-#
 # EDIT ONE LINE before saving: ibgKey, from the server:
 #   php ~/private/init-config.php --show-key
+# The key is 64 hex characters. If yours is shorter, it got clipped.
 #
-# Then check it exists and works:
-#   /system script print
+# BEFORE THE FIRST RUN, disable the scheduler so a fault cannot loop:
+#   /system scheduler disable [find name="ibg-sync"]
 #   /system script run ibg-sync
 #   /log print where message~"ibg-sync"
+# Only once you see "Done sync." should you re-enable it:
+#   /system scheduler enable [find name="ibg-sync"]
+#
+# WHY NOT /import
+#
+# An .rsc wrapping this in `source={ ... }` asks the importer to swallow
+# nested braces, comments and $variables. RouterOS does not reliably
+# survive that: the script silently never appears, and
+# `/system script run ibg-sync` then reports "no such item".
 # =====================================================================
+
+ } block
+#   contains 20 nested braces, 36 comment lines and 75 $variables, and
+#   RouterOS's importer does not survive that combination: the script
+#   silently never appears, and the first sign of trouble is
+#   "no such item" from /system script run ibg-sync.
+#
+#   This file is kept as the readable, reviewable copy of the script and
+#   as the source ibg-sync-source.txt is generated from.
+#
+# It must never crash the scheduler. Everything is wrapped in :do/on-error.
+# =====================================================================
+
+/system script
+add name="ibg-sync" dont-require-permissions=no owner=admin \
+    policy=read,write,policy,test,sensitive source={
 
 :local ibgUrl "https://ibphone.eclipselivecam.online/api/router-sync.php"
 :local ibgKey "CHANGE-ME-64-hex-characters"
@@ -48,7 +66,29 @@
         :error "fetch"
     }
 
-    :local doc [:deserialize from=json value=($res->"data")]
+    # NEVER hand :deserialize something that is not JSON.
+    #
+    # On a small router, feeding HTML to the JSON parser does not raise a
+    # catchable error — it can fault RouterOS and reboot the box. With a
+    # 60-second scheduler that turns into a reboot loop, and :do/on-error
+    # cannot save you because the crash is below the script layer.
+    #
+    # It is easy to arrive here by accident: point ibgUrl at the site root
+    # instead of /api/router-sync.php and you get the homepage, or the
+    # host serves an error page, or a captive portal upstream intercepts
+    # the request. All of those start with '<', not '{'.
+    :local data ($res->"data")
+
+    :if ([:len $data] = 0) do={
+        :log warning "ibg-sync: empty response"
+        :error "empty"
+    }
+    :if ([:pick $data 0 1] != "{") do={
+        :log warning ("ibg-sync: response is not JSON, starts with: " . [:pick $data 0 40])
+        :error "notjson"
+    }
+
+    :local doc [:deserialize from=json value=$data]
 
     :if (($doc->"ok") != true) do={
         :log warning "ibg-sync: server said not ok"

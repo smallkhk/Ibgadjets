@@ -54,7 +54,29 @@ add name="ibg-sync" dont-require-permissions=no owner=admin \
         :error "fetch"
     }
 
-    :local doc [:deserialize from=json value=($res->"data")]
+    # NEVER hand :deserialize something that is not JSON.
+    #
+    # On a small router, feeding HTML to the JSON parser does not raise a
+    # catchable error — it can fault RouterOS and reboot the box. With a
+    # 60-second scheduler that turns into a reboot loop, and :do/on-error
+    # cannot save you because the crash is below the script layer.
+    #
+    # It is easy to arrive here by accident: point ibgUrl at the site root
+    # instead of /api/router-sync.php and you get the homepage, or the
+    # host serves an error page, or a captive portal upstream intercepts
+    # the request. All of those start with '<', not '{'.
+    :local data ($res->"data")
+
+    :if ([:len $data] = 0) do={
+        :log warning "ibg-sync: empty response"
+        :error "empty"
+    }
+    :if ([:pick $data 0 1] != "{") do={
+        :log warning ("ibg-sync: response is not JSON, starts with: " . [:pick $data 0 40])
+        :error "notjson"
+    }
+
+    :local doc [:deserialize from=json value=$data]
 
     :if (($doc->"ok") != true) do={
         :log warning "ibg-sync: server said not ok"

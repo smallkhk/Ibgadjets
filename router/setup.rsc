@@ -195,9 +195,16 @@ set discover-interface-list=none
 # The 60s poll. router-sync.rsc must be imported first — it defines the
 # script this scheduler runs.
 # ---------------------------------------------------------------------
+# Created DISABLED on purpose. If the script faults on its first run —
+# a wrong URL, a key that got clipped in the paste — a live 60-second
+# scheduler turns one fault into a reboot loop, and you cannot get into
+# the router to stop it. Run it by hand once, see "Done sync." in the
+# log, and only then enable this:
+#   /system scheduler enable [find name="ibg-sync"]
 /system scheduler
 add name="ibg-sync" interval=60s on-event="/system script run ibg-sync" \
-    policy=read,write,policy,test,sensitive comment="IB Gadgets site sync"
+    policy=read,write,policy,test,sensitive comment="IB Gadgets site sync" \
+    disabled=yes
 
 /system clock
 set time-zone-name=Africa/Lagos
