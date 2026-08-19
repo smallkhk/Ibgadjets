@@ -214,13 +214,14 @@
     :foreach h in=[/ip hotspot user find where comment=$mark] do={
         :local hname [/ip hotspot user get $h name]
         :if ([:typeof [:find $wanted ("," . $hname . ",")]] = "nothing") do={
-            # There is no /ip hotspot active remove here, and that is
-            # deliberate. On this board that single call panics the
-            # kernel and reboots the router — verified by hand, one
-            # command at a time: user remove is fine, active remove is
-            # not. Removing the account is enough on its own; the hotspot
-            # drops the session with it, and anything that somehow
-            # survives dies at the idle timeout.
+            # Kick the live session first. Removing the account does NOT
+            # end a session already established — that was tested on the
+            # live router, where a suspended customer kept browsing until
+            # they happened to disconnect. Without this line, suspending
+            # someone on a video call does nothing for hours.
+            :foreach a in=[/ip hotspot active find where user=$hname] do={
+                /ip hotspot active remove $a
+            }
             /ip hotspot user remove $h
             # The mac-cookie is deliberately LEFT in place. A cookie on
             # its own grants nothing — it maps a device to a username
@@ -236,12 +237,15 @@
     # -----------------------------------------------------------------
     # 4. Blocked devices — one phone off, account untouched
     # -----------------------------------------------------------------
-    # Same story as above: no active remove. The ip-binding is what does
-    # the blocking, and it takes effect on the blocked device's next
-    # connection rather than instantly.
+    # The ip-binding stops the device reconnecting; the kick ends the
+    # session it already has. Both are needed — blocking a phone that is
+    # mid-stream should take effect now, not whenever it next reassociates.
     /ip hotspot ip-binding remove [find comment="ibg-block"]
     :foreach m in=$blocked do={
         /ip hotspot ip-binding add mac-address=$m type=blocked comment="ibg-block"
+        :foreach a in=[/ip hotspot active find where mac-address=$m] do={
+            /ip hotspot active remove $a
+        }
     }
 
     # -----------------------------------------------------------------
