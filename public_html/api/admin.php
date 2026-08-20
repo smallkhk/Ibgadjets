@@ -73,6 +73,89 @@ case 'overview':
     ]]);
 
 // =====================================================================
+// Free trial
+// =====================================================================
+case 'trial_status':
+    $plan = one('SELECT * FROM plans WHERE is_trial = 1 ORDER BY id LIMIT 1');
+    ok([
+        'enabled' => setting('trial_enabled', '0') === '1',
+        'plan'    => $plan ? [
+            'id'      => (int) $plan['id'],
+            'name'    => $plan['name'],
+            'data_mb' => $plan['data_mb'] === null ? null : (int) $plan['data_mb'],
+            'hours'   => (int) $plan['validity_hours'],
+            'active'  => (bool) $plan['active'],
+        ] : null,
+        'live'    => (int) scalar(
+            "SELECT COUNT(*) FROM subscriptions s
+               JOIN plans p ON p.id = s.plan_id
+              WHERE p.is_trial = 1 AND s.status = 'active' AND s.expires_at > NOW()"),
+        'claimed_total' => (int) scalar('SELECT COUNT(*) FROM customers WHERE trial_claimed_at IS NOT NULL'),
+    ]);
+
+/**
+ * Turn trials on or off, and optionally end the ones already running.
+ *
+ * Switching off only stops NEW claims — people already on a trial keep
+ * what they were given, which is the fair default. `end_live` is the
+ * separate, deliberate act of taking it back from everyone at once, for
+ * when the giveaway has to stop now rather than over the next week.
+ */
+case 'trial_set':
+    require_method('POST');
+    csrf_check();
+    require_admin();
+
+    $on = in_array((string) input('enabled', '0'), ['1', 'true', 'yes'], true);
+    q("INSERT INTO settings (k, v) VALUES ('trial_enabled', ?)
+       ON DUPLICATE KEY UPDATE v = VALUES(v)", [$on ? '1' : '0']);
+
+    $ended = 0;
+    if (in_array((string) input('end_live', '0'), ['1', 'true', 'yes'], true)) {
+        // revoke_pending is what the router acts on: the customer leaves
+        // the desired-state list on the next poll, their session is cut
+        // and the account removed. Within a minute, nobody is on a trial.
+        $ended = q(
+            "UPDATE subscriptions s
+               JOIN plans p ON p.id = s.plan_id
+                SET s.status = 'cancelled', s.sync_state = 'revoke_pending'
+              WHERE p.is_trial = 1 AND s.status = 'active'"
+        )->rowCount();
+
+        q('INSERT INTO sync_log (action, payload, result) VALUES (?,?,?)',
+            ['trial_stop', json_encode(['ended' => $ended]), 'all live trials cancelled']);
+    }
+
+    ok(['enabled' => $on, 'ended' => $ended]);
+
+/**
+ * Edit the trial's size without touching the shop.
+ *
+ * It is a plan row, so this is really just a plan edit — but routing it
+ * through its own action keeps the trial off the Bundles screen, where
+ * a giveaway sitting among the priced bundles invites an accidental sale.
+ */
+case 'trial_plan_save':
+    require_method('POST');
+    csrf_check();
+    require_admin();
+
+    $plan = one('SELECT * FROM plans WHERE is_trial = 1 ORDER BY id LIMIT 1');
+    if (!$plan) {
+        fail('No trial plan exists. Run db/migrations/004-free-trial.sql.', 404);
+    }
+
+    $mb    = max(1, min(1024 * 1024, (int) input('data_mb', 5120)));
+    $hours = max(1, min(24 * 365, (int) input('hours', 168)));
+
+    q('UPDATE plans SET data_mb = ?, validity_hours = ? WHERE id = ?', [$mb, $hours, (int) $plan['id']]);
+
+    // Existing trials keep the size they were given. Changing a plan
+    // under someone mid-bundle would move their goalposts, and the
+    // router is already enforcing the old figure.
+    ok(['data_mb' => $mb, 'hours' => $hours]);
+
+// =====================================================================
 // Reports
 //
 // Everything here counts only status='success' transactions. A pending

@@ -61,6 +61,45 @@
       </div>
     </section>
 
+    <!-- TRIAL -->
+    <section id="v-trial" class="advw hide">
+      <div class="panel">
+        <h3>Free trial</h3>
+        <p class="hint" style="margin-bottom:16px">
+          One free bundle per person, ever. It ends by itself when the data runs
+          out or the time expires — the router enforces both, the same way it
+          does for a paid bundle.
+        </p>
+        <div class="grid-stats" id="trialStats"></div>
+
+        <div style="margin-top:20px" id="trialControls"></div>
+      </div>
+
+      <div class="panel" style="margin-top:20px">
+        <h3>What the trial gives</h3>
+        <p class="hint" style="margin-bottom:16px">
+          Changing this affects people who claim from now on. Anyone already on a
+          trial keeps what they were given — the router is enforcing that figure
+          already, and moving it under them mid-bundle would be unfair.
+        </p>
+        <form data-submit="trial-plan-save">
+          <div class="row-2">
+            <div class="field">
+              <label for="tr-mb">Data (MB)</label>
+              <input id="tr-mb" type="number" min="1" step="1">
+              <div class="hint">5120 MB is 5 GB.</div>
+            </div>
+            <div class="field">
+              <label for="tr-hours">Valid for (hours)</label>
+              <input id="tr-hours" type="number" min="1" step="1">
+              <div class="hint">168 hours is a week.</div>
+            </div>
+          </div>
+          <button class="btn btn-ghost" type="submit">Save trial size</button>
+        </form>
+      </div>
+    </section>
+
     <!-- REPORTS -->
     <section id="v-rep" class="advw hide">
       <div class="panel">

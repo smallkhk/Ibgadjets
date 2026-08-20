@@ -222,10 +222,23 @@ function receive_report(): never
             // GREATEST(): the site's figure only ever climbs within a
             // subscription. A router reset zeroes its counters, and we
             // must not let that erase what someone already spent.
+            //
+            // sync_state='synced' is what stops a top-up being eaten.
+            // The router's byte counters belong to the hotspot USER and
+            // carry across bundles, so between a customer buying a new
+            // bundle and the router being told about it, the router is
+            // still reporting the OLD bundle's total. Writing that onto
+            // the fresh subscription charged them for data they had
+            // already paid for — a 5GB top-up after using 4GB arrived
+            // with 1GB on it.
+            //
+            // Once the router confirms the new subscription it has also
+            // reset its counters for that user, so anything it reports
+            // from then on belongs to this bundle and only this bundle.
             if ($customerId) {
                 q("UPDATE subscriptions
                       SET data_used_mb = GREATEST(data_used_mb, ?)
-                    WHERE customer_id = ? AND status = 'active'
+                    WHERE customer_id = ? AND status = 'active' AND sync_state = 'synced'
                     ORDER BY id DESC LIMIT 1",
                     [$usedMb, $customerId]);
 

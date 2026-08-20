@@ -10,6 +10,10 @@ let ME = null;
 let CHOSEN = null;
 let ORDER = null;          // the pending transaction returned by purchase.php
 let AUTH_MODE = 'signup';
+// Set when someone taps the trial button while logged out, so the claim
+// happens the moment signup finishes instead of dropping them back on the
+// page wondering what became of it.
+let CLAIM_AFTER_SIGNUP = false;
 
 /* ------------------------------------------------------------- boot */
 
@@ -33,6 +37,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     paintFacts(data.live_count);
     paintSettings();
     renderPlans();
+    paintTrial();
   } catch (err) {
     document.getElementById('planGrid').innerHTML =
       `<p class="empty">Could not load the bundles. ${esc(err.message)}</p>`;
@@ -209,12 +214,82 @@ async function submitAuth() {
     closeAll();
     toast(AUTH_MODE === 'signup' ? 'Account created — welcome' : 'Logged in');
 
+    // Came here from the trial button? Claim it now. Making them find
+    // the banner again after signing up is how a free bundle goes
+    // unclaimed.
+    if (CLAIM_AFTER_SIGNUP) {
+      CLAIM_AFTER_SIGNUP = false;
+      await claimTrial();
+      return;
+    }
+
     // Came here from a plan button? Carry straight on to checkout.
     if (CHOSEN) { openCheckout(); }
   } catch (err) {
     toast(err.message, true);
   } finally {
     btn.disabled = false;
+  }
+}
+
+/* ----------------------------------------------------- free trial */
+
+async function paintTrial() {
+  const box = document.getElementById('trialBanner');
+  if (!box) { return; }
+
+  let t;
+  try {
+    t = await API.get('api/trial.php?action=status');
+  } catch (err) {
+    box.className = 'hide';          // never block the shop over this
+    box.innerHTML = '';
+    return;
+  }
+
+  // Someone who has already had a trial, or who arrives when the owner
+  // has switched it off, sees nothing at all. Advertising a giveaway you
+  // cannot have is worse than not mentioning it.
+  // className, not classList.add. .trial{display:flex} is declared after
+  // .hide{display:none} and they have equal specificity, so "trial hide"
+  // stays on screen — the banner has to stop being a .trial to vanish.
+  if (!t.available || t.claimed || !t.plan) {
+    box.className = 'hide';
+    // Emptied, not just hidden. A claim button left in the DOM of a
+    // hidden box is still findable and still clickable by anything that
+    // does not go through the layout.
+    box.innerHTML = '';
+    return;
+  }
+
+  box.className = 'trial';
+  box.innerHTML = `
+    <div>
+      <h3>Try it free — ${esc(t.plan.data)}</h3>
+      <p>One free bundle, no payment. ${esc(t.plan.speed)}, valid ${esc(t.plan.valid)}.
+         When the data finishes, the trial ends.</p>
+    </div>
+    <button class="btn btn-beam" data-action="claim-trial">
+      ${ME ? 'Start my free trial' : 'Create account & start'}
+    </button>`;
+}
+
+async function claimTrial() {
+  // Not logged in? Sign them up first and come straight back — losing
+  // the trial behind a signup form is how you lose the customer.
+  if (!ME) {
+    CLAIM_AFTER_SIGNUP = true;
+    openAuth('signup');
+    return;
+  }
+
+  try {
+    const res = await API.post('api/trial.php?action=claim', {});
+    toast(res.message);
+    paintTrial();   // hides the banner: it is claimed now
+  } catch (err) {
+    toast(err.message, true);
+    paintTrial();
   }
 }
 
@@ -454,6 +529,7 @@ on('copy-ref',       () => copyRef());
 on('copy-account',   () => copyAccount());
 on('upload-proof',   () => uploadProof());
 on('sent-no-proof',  () => sentNoProof());
+on('claim-trial',    () => claimTrial());
 on('submit-hash',    () => submitHash());
 on('auth',           () => submitAuth());
 on('toggle-flat',    () => toggleFlat());

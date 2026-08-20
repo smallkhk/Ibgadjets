@@ -32,6 +32,9 @@ CREATE TABLE customers (
   type            ENUM('compound','visitor') NOT NULL DEFAULT 'compound',
   flat_no         VARCHAR(20)  NULL,
   wallet_naira    DECIMAL(10,2) NOT NULL DEFAULT 0,
+  -- One trial per person, ever. On the customer rather than the
+  -- subscription so it survives the trial being cancelled or expiring.
+  trial_claimed_at DATETIME    NULL,
   status          ENUM('active','suspended') NOT NULL DEFAULT 'active',
   device_limit    TINYINT      NULL,
   router_username VARCHAR(60)  UNIQUE,
@@ -60,6 +63,10 @@ CREATE TABLE plans (
   tier            TINYINT      NOT NULL DEFAULT 2,
   um_profile      VARCHAR(60)  NULL,
   featured        TINYINT(1)   NOT NULL DEFAULT 0,
+  -- The free trial is an ordinary plan with price 0 and this flag set.
+  -- It keeps subscriptions, router sync, expiry and the data cap working
+  -- on it unchanged, while keeping it out of the shop.
+  is_trial        TINYINT(1)   NOT NULL DEFAULT 0,
   active          TINYINT(1)   NOT NULL DEFAULT 1,
   sort_order      SMALLINT     NOT NULL DEFAULT 0,
   INDEX idx_plans_listing (active, audience, sort_order)

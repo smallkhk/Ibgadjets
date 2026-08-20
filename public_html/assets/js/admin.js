@@ -1,5 +1,6 @@
 const TABS = [
   ['over',  'Overview',  loadOverview],
+  ['trial', 'Free trial', loadTrial],
   ['rep',   'Reports',   loadReports],
   ['pay',   'Payments',  loadPayments],
   ['cust',  'Customers', loadCustomers],
@@ -83,6 +84,71 @@ async function loadOverview() {
           <td>${esc(r.action)}</td>
           <td class="hint">${esc(r.result)}</td></tr>`).join('')
       : `<tr><td colspan="3" class="empty">The router has not called in yet.</td></tr>`;
+  } catch (err) { toast(err.message, true); }
+}
+
+/* ------------------------------------------------------------- trial */
+
+async function loadTrial() {
+  try {
+    const t = await API.get('api/admin.php?action=trial_status');
+
+    if (!t.plan) {
+      document.getElementById('trialStats').innerHTML = '';
+      document.getElementById('trialControls').innerHTML =
+        `<p class="empty">No trial plan exists. Run <code>db/migrations/004-free-trial.sql</code>.</p>`;
+      return;
+    }
+
+    const cards = [
+      ['Status', t.enabled ? 'On' : 'Off'],
+      ['On trial now', t.live],
+      ['Claimed ever', t.claimed_total],
+      ['Trial size', (t.plan.data_mb / 1024).toFixed(t.plan.data_mb % 1024 ? 1 : 0) + ' GB'],
+    ];
+    document.getElementById('trialStats').innerHTML = cards.map(([lbl, val]) =>
+      `<div class="stat"><div class="lbl">${lbl}</div><div class="val num">${val}</div></div>`).join('');
+
+    document.getElementById('trialControls').innerHTML = t.enabled
+      ? `<button class="btn btn-ghost" data-action="trial-off">Stop giving out trials</button>
+         <button class="btn btn-danger" style="margin-left:10px" data-action="trial-off-now">
+           Stop and end the ${t.live} running now
+         </button>
+         <p class="hint" style="margin-top:12px">
+           The first button stops new claims and lets people finish what they have.
+           The second cuts everyone off within a minute.
+         </p>`
+      : `<button class="btn btn-primary" data-action="trial-on">Start giving out trials</button>
+         <p class="hint" style="margin-top:12px">
+           New customers will see a free trial button on the homepage.
+         </p>`;
+
+    document.getElementById('tr-mb').value = t.plan.data_mb ?? 5120;
+    document.getElementById('tr-hours').value = t.plan.hours;
+  } catch (err) { toast(err.message, true); }
+}
+
+async function setTrial(on, endLive) {
+  if (endLive && !confirm('End every running trial? Everyone on one drops offline within a minute.')) { return; }
+  try {
+    const res = await API.post('api/admin.php?action=trial_set', {
+      enabled: on ? '1' : '0',
+      end_live: endLive ? '1' : '0',
+    });
+    toast(on ? 'Free trial is on'
+             : (res.ended ? `Trial off — ${res.ended} ended` : 'Free trial is off'));
+    loadTrial();
+  } catch (err) { toast(err.message, true); }
+}
+
+async function saveTrialPlan() {
+  try {
+    await API.post('api/admin.php?action=trial_plan_save', {
+      data_mb: document.getElementById('tr-mb').value,
+      hours:   document.getElementById('tr-hours').value,
+    });
+    toast('Trial size saved');
+    loadTrial();
   } catch (err) { toast(err.message, true); }
 }
 
@@ -421,6 +487,10 @@ on('new-plan',         () => newPlan());
 on('search-customers', () => loadCustomers());
 on('tab',              (el) => showTab(el.dataset.tab));
 on('report-days',      () => loadReports());
+on('trial-on',         () => setTrial(true,  false));
+on('trial-off',        () => setTrial(false, false));
+on('trial-off-now',    () => setTrial(false, true));
+on('trial-plan-save',  () => saveTrialPlan());
 on('approve',          (el) => approve(Number(el.dataset.id)));
 on('reject',           (el) => reject(Number(el.dataset.id)));
 on('save-plan',        (el) => savePlan(Number(el.dataset.id)));

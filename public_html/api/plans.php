@@ -9,7 +9,10 @@ require __DIR__ . '/../../private/bootstrap.php';
 require_method('GET');
 
 $rows = all(
-    'SELECT * FROM plans WHERE active = 1 ORDER BY audience, sort_order, price_naira'
+    // is_trial = 0: the trial is a plan so that subscriptions, sync,
+    // expiry and the data cap all work on it unchanged, but it is not
+    // for sale and must never appear in the shop.
+    'SELECT * FROM plans WHERE active = 1 AND is_trial = 0 ORDER BY audience, sort_order, price_naira'
 );
 
 ok([

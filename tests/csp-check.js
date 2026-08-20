@@ -73,7 +73,7 @@ const say = (name, ok) => {
   await page.waitForTimeout(1500);
 
   say('admin login works', await page.locator('#app').isVisible());
-  say('tabs render', await page.locator('.adm-tabs .tab').count() === 7);
+  say('tabs render', await page.locator('.adm-tabs .tab').count() === 8);
   await page.locator("[data-tab='plans']").click();
   await page.waitForTimeout(900);
   say('tab click loads content', await page.locator('#planRows tr').count() > 0);
@@ -142,6 +142,51 @@ const say = (name, ok) => {
   await page.locator("[data-submit='reset-finish'] button[type='submit']").click();
   await page.waitForTimeout(1500);
   say('reset completes and logs in', await page.locator('#ov-reset').isHidden());
+  say('no CSP violations', violations.length === 0);
+  violations.forEach((v) => console.log('        ' + v));
+  await ctx.close();
+
+  // The trial banner only renders when the owner has switched trials on
+  // and this person has not claimed one, so it is invisible by default —
+  // which means a broken claim button would go unnoticed until a real
+  // customer met it.
+  console.log('free trial banner');
+  ({ page, violations, ctx } = await openPage());
+  await page.goto(B + '/admin.html', { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(600);
+  await page.fill('#a-email', process.env.ADMIN_EMAIL || 'owner@ibgadgets.ng');
+  await page.fill('#a-pass',  process.env.ADMIN_PASS  || 'testpass1234');
+  await page.locator("[data-submit='admin-login'] button[type='submit']").click();
+  await page.waitForTimeout(1200);
+  await page.locator("[data-tab='trial']").click();
+  await page.waitForTimeout(900);
+
+  const wasOff = await page.locator("[data-action='trial-on']").count() > 0;
+  if (wasOff) {
+    await page.locator("[data-action='trial-on']").click();
+    await page.waitForTimeout(900);
+  }
+  say('admin can switch trials on', await page.locator("[data-action='trial-off']").count() > 0);
+  await ctx.close();
+
+  // A fresh customer, so the banner is genuinely claimable.
+  ({ page, violations, ctx } = await openPage());
+  const tphone = '0803' + String(Math.floor(1000000 + Math.random() * 8999999));
+  await page.goto(B + '/index.html', { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(600);
+  await page.locator("[data-action='auth-signup']").first().click();
+  await page.waitForTimeout(500);
+  await page.fill('#f-phone', tphone);
+  await page.selectOption('#f-type', 'visitor');
+  await page.fill('#f-pass', 'hunter2222');
+  await page.fill('#f-seca', 'Ibadan');
+  await page.locator('#authBtn').click();
+  await page.waitForTimeout(1800);
+
+  say('banner is offered', await page.locator("[data-action='claim-trial']").isVisible());
+  await page.locator("[data-action='claim-trial']").click();
+  await page.waitForTimeout(1800);
+  say('banner disappears once claimed', await page.locator("[data-action='claim-trial']").count() === 0);
   say('no CSP violations', violations.length === 0);
   violations.forEach((v) => console.log('        ' + v));
   await ctx.close();

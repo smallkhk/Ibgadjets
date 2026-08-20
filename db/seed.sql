@@ -60,5 +60,23 @@ INSERT INTO settings (k, v) VALUES
   ('tether_policy',      'flag'),   -- flag | block
   ('tether_grace_hits',  '30'),     -- roughly minutes of sharing tolerated before the admin sees a warning
 
-  ('live_count_floor',   '8')       -- cosmetic "online now" floor on the homepage
+  ('live_count_floor',   '8'),      -- cosmetic "online now" floor on the homepage
+
+  -- Free trial. OFF on a fresh install: a giveaway should never switch
+  -- itself on. Admin > Free trial turns it on when the owner is ready.
+  ('trial_enabled',      '0')
 ON DUPLICATE KEY UPDATE v = VALUES(v);
+
+-- ---------------------------------------------------------------------
+-- The free trial plan
+--
+-- is_trial = 1 keeps it out of the shop while letting subscriptions, the
+-- router sync, expiry and the data cap work on it exactly as they do for
+-- a paid bundle. Nothing hands it out until trial_enabled is '1'.
+-- ---------------------------------------------------------------------
+INSERT INTO plans
+  (name, subtitle, audience, price_naira, data_mb, speed_down_mbps, speed_up_mbps,
+   validity_hours, max_devices, tier, featured, is_trial, active, sort_order)
+SELECT 'Free trial', 'One free bundle to try the network.', 'visitor',
+       0, 5120, 10, 3, 168, 1, 1, 0, 1, 1, 0
+ WHERE NOT EXISTS (SELECT 1 FROM plans WHERE is_trial = 1);

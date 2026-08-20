@@ -22,7 +22,17 @@
 
 # Only users carrying this comment are ours to create, change or delete.
 # Anything you made by hand is left alone.
+#
+# The comment is "ibg:<subscription id>", not a bare "ibg". The id is
+# what tells us a customer has started a NEW bundle, because RouterOS
+# byte counters belong to the hotspot user and carry straight across from
+# one bundle to the next. Without resetting them, a customer who used 4GB
+# and then topped up got a 5GB bundle with 1GB on it.
+#
+# markRe matches both shapes so accounts created by older versions of
+# this script, commented plain "ibg", are still recognised as ours.
 :local mark "ibg"
+:local markRe "^ibg"
 
 # ---------------------------------------------------------------------
 # RUN LOCK — one cycle at a time, no exceptions.
@@ -213,10 +223,14 @@
             :set bytes ($bytes + $used)
         }
 
+        # Which bundle this account is on. A change here means a new
+        # purchase, and the counters must start again from zero.
+        :local umark ($mark . ":" . $sub)
+
         :if ([:len $found] = 0) do={
             /ip hotspot user add name=$uname password=$pass \
                 profile=$uprof \
-                limit-bytes-total=$bytes comment=$mark
+                limit-bytes-total=$bytes comment=$umark
             :log info ("ibg-sync: provisioned " . $uname)
         } else={
             # Same reasoning as the profiles above: write only on a real
@@ -224,13 +238,24 @@
             # barely moves between polls, so a settled customer costs no
             # writes at all.
             :local fid [:pick $found 0]
+
+            # A different subscription id is a new bundle. Zero the
+            # counters BEFORE writing the new limit, so the cap the site
+            # computed applies to a fresh count rather than to the
+            # previous bundle's total.
+            :if ([/ip hotspot user get $fid comment] != $umark) do={
+                /ip hotspot user reset-counters $fid
+                :log info ("ibg-sync: new bundle for " . $uname . ", counters reset")
+            }
+
             :if ([/ip hotspot user get $fid limit-bytes-total] != $bytes or \
                  [/ip hotspot user get $fid profile] != $uprof or \
                  [/ip hotspot user get $fid password] != $pass or \
+                 [/ip hotspot user get $fid comment] != $umark or \
                  [/ip hotspot user get $fid disabled] = true) do={
                 /ip hotspot user set $fid password=$pass \
                     profile=$uprof \
-                    limit-bytes-total=$bytes comment=$mark disabled=no
+                    limit-bytes-total=$bytes comment=$umark disabled=no
             }
         }
 
@@ -242,7 +267,7 @@
     # 3. Remove anything of ours the site did not list
     #    (expired, spent, suspended, refunded — all the same case here)
     # -----------------------------------------------------------------
-    :foreach h in=[/ip hotspot user find where comment=$mark] do={
+    :foreach h in=[/ip hotspot user find where comment~$markRe] do={
         :local hname [/ip hotspot user get $h name]
         :if ([:typeof [:find $wanted ("," . $hname . ",")]] = "nothing") do={
             # Kick the live session first. Removing the account does NOT
@@ -311,7 +336,7 @@
     # -----------------------------------------------------------------
     :local usage ""
 
-    :foreach h in=[/ip hotspot user find where comment=$mark] do={
+    :foreach h in=[/ip hotspot user find where comment~$markRe] do={
         :local hname [/ip hotspot user get $h name]
         :local bin   [/ip hotspot user get $h bytes-in]
         :local bout  [/ip hotspot user get $h bytes-out]

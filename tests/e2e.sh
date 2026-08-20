@@ -261,6 +261,92 @@ $paid = 0; foreach(($j["by_plan"]??[]) as $p){ $paid += (int)$p["sold"]; }
 echo $paid === (int)($j["totals"]["payments"]??-1) ? "yes":"no";')
 want "plan breakdown matches the total" "$PENDING_EXCLUDED" "yes"
 
+# ----------------------------------------------------------- free trial
+# A giveaway with a bug in it is the one feature that can cost real money
+# while looking like it is working.
+say "Free trial"
+
+TPHONE="0803$(php -r 'echo random_int(1000000,9999999);')"
+TJ=$(mktemp)
+TCSRF=$(jq_get "$(curl -s -c "$TJ" "$BASE/api/auth.php?action=me")" csrf)
+curl -s -o /dev/null -b "$TJ" -c "$TJ" -X POST "$BASE/api/auth.php?action=signup" \
+  -H "Content-Type: application/json" -H "X-CSRF-Token: $TCSRF" \
+  -d "{\"phone\":\"$TPHONE\",\"password\":\"hunter2222\",\"type\":\"visitor\",\"security_question\":\"What is the name of your home town?\",\"security_answer\":\"Ibadan\"}"
+
+# Set it off rather than assuming it. The browser checks switch trials on
+# and leave them on, so a run after one of those would otherwise "fail"
+# here for a reason that has nothing to do with the code.
+curl -s -o /dev/null -b "$AJ" -X POST "$BASE/api/admin.php?action=trial_set" \
+  -H "Content-Type: application/json" -H "X-CSRF-Token: $ACSRF" -d '{"enabled":"0"}'
+
+OFFCLAIM=$(curl -s -b "$TJ" -X POST "$BASE/api/trial.php?action=claim" \
+  -H "Content-Type: application/json" -H "X-CSRF-Token: $TCSRF" -d '{}')
+want "cannot claim while switched off" "$(jq_get "$OFFCLAIM" ok)" "false"
+
+# The trial must never be purchasable — it is a plan row, and the shop
+# lists plan rows.
+SHOP=$(curl -s "$BASE/api/plans.php")
+TRIALINSHOP=$(printf '%s' "$SHOP" | php -r '$d=json_decode(stream_get_contents(STDIN),true); $n=0; foreach(($d["plans"]??[]) as $p){ if(!empty($p["name"]) && stripos($p["name"],"trial")!==false) $n++; } echo $n;')
+want "trial is not on sale" "$TRIALINSHOP" "0"
+
+curl -s -o /dev/null -b "$AJ" -X POST "$BASE/api/admin.php?action=trial_set" \
+  -H "Content-Type: application/json" -H "X-CSRF-Token: $ACSRF" -d '{"enabled":"1"}'
+
+CLAIM=$(curl -s -b "$TJ" -X POST "$BASE/api/trial.php?action=claim" \
+  -H "Content-Type: application/json" -H "X-CSRF-Token: $TCSRF" -d '{}')
+want "trial claimed" "$(jq_get "$CLAIM" ok)" "true"
+
+AGAIN=$(curl -s -b "$TJ" -X POST "$BASE/api/trial.php?action=claim" \
+  -H "Content-Type: application/json" -H "X-CSRF-Token: $TCSRF" -d '{}')
+want "one trial per person" "$(jq_get "$AGAIN" ok)" "false"
+
+SYNC=$(curl -s "$BASE/api/router-sync.php" -H "X-Sync-Key: $SYNC_KEY")
+if printf '%s' "$SYNC" | grep -q "ib$TPHONE"; then ok "trial reaches the router"; else bad "trial reaches the router" "not listed"; fi
+
+# The stop button has to take it back from people already on one,
+# otherwise "off" only means "off for the next person".
+STOP=$(curl -s -b "$AJ" -X POST "$BASE/api/admin.php?action=trial_set" \
+  -H "Content-Type: application/json" -H "X-CSRF-Token: $ACSRF" -d '{"enabled":"0","end_live":"1"}')
+ENDED=$(printf '%s' "$STOP" | php -r '$d=json_decode(stream_get_contents(STDIN),true); echo (int)($d["ended"]??0) > 0 ? "yes":"no";')
+want "stop button ends live trials" "$ENDED" "yes"
+
+SYNC=$(curl -s "$BASE/api/router-sync.php" -H "X-Sync-Key: $SYNC_KEY")
+if printf '%s' "$SYNC" | grep -q "ib$TPHONE"; then bad "stopped trial leaves the router" "still listed"; else ok "stopped trial leaves the router"; fi
+
+rm -f "$TJ"
+
+# ------------------------------------------------------- usage accounting
+# A top-up used to arrive already spent: the router's byte counters carry
+# across bundles, so the new subscription inherited the old one's total.
+# Someone who used 4GB and bought 5GB more got 1GB.
+say "A top-up is not eaten by the previous bundle's usage"
+
+SUB=$(printf '%s' "$(curl -s -b "$AJ" "$BASE/api/admin.php?action=customers&q=$PHONE")" \
+  | php -r '$j=json_decode(stream_get_contents(STDIN),true); echo $j["customers"][0]["id"]??"";')
+FIRSTSUB=$(curl -s "$BASE/api/router-sync.php" -H "X-Sync-Key: $SYNC_KEY" \
+  | php -r '$d=json_decode(stream_get_contents(STDIN),true); foreach($d["users"] as $u){ if($u["username"]===$argv[1]){echo $u["sub_id"];exit;} }' "$ACCOUNT")
+
+curl -s -o /dev/null -X POST "$BASE/api/router-sync.php" -H "X-Sync-Key: $SYNC_KEY" \
+  -H "Content-Type: application/json" -d "{\"applied\":[$FIRSTSUB],\"usage\":[{\"username\":\"$ACCOUNT\",\"used_mb\":4096}]}"
+
+BUY2=$(curl -s -b "$CJ" -X POST "$BASE/api/purchase.php" \
+  -H "Content-Type: application/json" -H "X-CSRF-Token: $CSRF" \
+  -d '{"plan_id":3,"method":"bank_transfer"}')
+REF2=$(jq_get "$BUY2" reference)
+TXID2=$(curl -s -b "$AJ" "$BASE/api/admin.php?action=transactions&status=pending" \
+  | php -r '$j=json_decode(stream_get_contents(STDIN),true); foreach(($j["transactions"]??[]) as $t){ if($t["reference"]===$argv[1]){echo $t["id"];exit;} }' "$REF2")
+curl -s -o /dev/null -b "$AJ" -X POST "$BASE/api/admin.php?action=approve" \
+  -H "Content-Type: application/json" -H "X-CSRF-Token: $ACSRF" -d "{\"id\":$TXID2}"
+
+# The router has not been told about the new bundle yet and is still
+# reporting the old counter. This is the exact moment the bug struck.
+curl -s -o /dev/null -X POST "$BASE/api/router-sync.php" -H "X-Sync-Key: $SYNC_KEY" \
+  -H "Content-Type: application/json" -d "{\"applied\":[],\"usage\":[{\"username\":\"$ACCOUNT\",\"used_mb\":4096}]}"
+
+SYNC=$(curl -s "$BASE/api/router-sync.php" -H "X-Sync-Key: $SYNC_KEY")
+IDX=$(printf '%s' "$SYNC" | php -r '$j=json_decode(stream_get_contents(STDIN),true); foreach(($j["users"]??[]) as $i=>$u){ if($u["username"]===$argv[1]){echo $i;exit;} } echo "";' "$ACCOUNT")
+want "the new bundle is whole" "$(jq_get "$SYNC" "users.$IDX.data_mb")" "5120"
+
 # --------------------------------------------------------------------- end
 printf '\n\033[1m%d passed, %d failed\033[0m\n' "$PASS" "$FAIL"
 rm -f "$CJ" "$AJ"
