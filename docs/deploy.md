@@ -26,7 +26,14 @@ Then, in order:
 | 9 | Turn on free SSL for the domain | cPanel → SSL |
 | 10 | Add the hourly cron for `expire.php` | cPanel → Cron Jobs |
 | 11 | Log in at `/admin.html`, set your **real bank details** | Admin → Settings |
-| 12 | Run the smoke test (below) | Terminal or your laptop |
+| 12 | Decide whether to switch the free trial on | Admin → Free trial |
+| 13 | Run the smoke test (below) | Terminal or your laptop |
+
+Step 11 is not optional decoration: the seed ships the bank details as
+`Change me in Admin > Settings` / `0000000000`, and a customer who
+follows those instructions sends your money to nobody.
+
+Step 12 ships **off**. Nothing is given away until you turn it on.
 
 Then the router — see part 2. Everything is explained in full underneath.
 
@@ -51,10 +58,12 @@ password** — the exact pair you passed to `make-admin.php`. The sync key
 reads itself out of `private/config.php`, so there is nothing to copy or
 paste wrong.
 
-30 checks: signup, purchase, approval, the router seeing the customer
-with the right limits, remaining-data arithmetic, usage flowing back, a
-router reset not erasing spent data, the device-allowance override,
-suspension. All 30 should pass.
+50 checks: signup, purchase, approval, receipt upload, the router seeing
+the customer with the right limits, remaining-data arithmetic, usage
+flowing back, a router reset not erasing spent data, a top-up not being
+eaten by the previous bundle's usage, the device-allowance override,
+suspension, forgotten-password recovery, the revenue reports and the free
+trial. All 50 should pass.
 
 If signup reports a rate limit, that is the limiter working — wait ten
 minutes, or clear it:
@@ -162,15 +171,39 @@ You should get JSON with ten plans. If you get an HTML error page, check
 ### Wipe and configure
 
 ```
-/system reset-configuration no-defaults=yes skip-backup=yes
+/system reset-configuration skip-backup=yes
 ```
 
-Reconnect with Winbox (MAC-connect — there is no IP yet), then upload
-`router/setup.rsc` to Files and:
+Note there is **no** `no-defaults=yes`. `setup.rsc` builds on the factory
+default configuration rather than replacing it, and reconnects on
+`192.168.88.1`.
+
+That is a deliberate change from how this started. The old version made
+its own bridge on `10.5.50.0/24` and moved every port onto it, which
+worked — until the router factory-reset itself after a kernel panic and
+took the addressing, the pool and the DHCP server with it. The hotspot
+server came back flagged `I` for invalid with nothing obvious to blame.
+Defconf already supplies a bridge holding every LAN port and both radios,
+an address, a pool and a working DHCP server, so building on top of it
+means a reset leaves far less to put back — and what is left is exactly
+what this file adds.
+
+Reconnect with Winbox, then upload `router/setup.rsc` to Files and:
 
 ```
 /import setup.rsc
 ```
+
+Check it came up clean — no `I` flag on the hotspot server:
+
+```
+/ip hotspot print
+/ip address print
+```
+
+An invalid hotspot server almost always means the bridge has no IP
+address. No amount of hotspot configuration fixes that; fix the address
+first.
 
 The domain is already set to `ibphone.eclipselivecam.online` throughout —
 `set-domain.sh` did that. Only change it if you switch domains, and use
@@ -240,7 +273,7 @@ Winbox to the hotspot subnet, which would lock out the tunnel too:
 ```
 /interface wireguard print          # find the Back To Home interface
 /ip address print                   # note the address it was given
-/ip service set winbox address=10.5.50.0/24,<the BTH subnet>
+/ip service set winbox address=192.168.88.0/24,<the BTH subnet>
 ```
 
 **Do not instead open Winbox to the internet.** Exposed Winbox ports have
@@ -298,6 +331,48 @@ so a wipe restores balances rather than refilling them. If it happened,
 check that the router's usage POSTs were actually landing before the
 reset (Admin → Overview → Router conversation).
 
+**The router reboots every 60 seconds.** Disable the scheduler first —
+match on what it runs, not its name, because the one on the live router
+is called `ibg-loop`:
+
+```
+/system scheduler disable [find on-event~"ibg-sync"]
+```
+
+Then work through `router/diag/README.md`. Four separate RouterOS 7.24
+faults were found this way on the live box, three of them firmware bugs
+rather than script mistakes: `rate-limit` on `/ip hotspot user` (rejected
+outright), `/ip hotspot active remove`, a POST with `output=user
+as-value`, and an array keyed by a number. Every one of them panicked the
+kernel rather than raising a catchable error, which is why `:do/on-error`
+could not save it.
+
+**Customers say the site is down, but it loads fine for you.** The host
+runs Imunify360 WebShield, which answers requests that look like they
+want a web page with a JavaScript challenge — 11 KB of HTML under a
+`200 OK`. Browsers solve it invisibly. The router cannot, which is why
+the sync script sends `Accept: application/json`; measured on this host,
+34 of 34 requests carrying that header came back as JSON while 14 of 34
+without it were challenged. If sync stops, check that header first, and
+consider asking Hostinger to exclude `/api/router-sync.php` from
+WebShield — the header works because of how WebShield currently scores
+requests, and that can change without warning.
+
+**A customer cannot attach their receipt.** They are almost certainly in
+the WiFi sign-in window — Android's `CaptivePortalLogin`, iOS's Captive
+Network Assistant — which is a stripped-down browser with no working file
+picker. Nothing server-side fixes it. The checkout screen offers "I have
+sent the money — no receipt" for exactly this, and the payment was
+already waiting for approval anyway; the receipt is evidence, not a gate.
+Tell them they can also open the site in Chrome or Safari.
+
+**A top-up arrived already spent.** Fixed, but it needs both halves
+deployed: the site must be current *and* the router must be running a
+script that resets its byte counters when a subscription id changes.
+RouterOS counters belong to the hotspot user and carry across bundles, so
+with only one half in place a customer who used 4 GB and bought 5 GB more
+gets a bundle with 1 GB on it.
+
 ---
 
 ## Updating with git (do this instead of re-uploading zips)
@@ -337,6 +412,34 @@ cd ~/src && git pull && bash deploy-to.sh ~/ibphone
 
 Then hard-refresh the browser (Ctrl+Shift+R) or you will be looking at
 cached JavaScript and think nothing changed.
+
+### Database migrations — the step that is easy to miss
+
+`deploy-to.sh` places files. It does not touch the database, on purpose:
+a deploy script that quietly alters tables is a deploy script that can
+lose data. When an update needs new columns they arrive as a numbered
+file in `db/migrations/`, and you run it once, by hand.
+
+```bash
+mysql -u USER -p DBNAME < ~/src/db/migrations/004-free-trial.sql
+```
+
+| File | What it adds | Symptom if you skip it |
+|---|---|---|
+| `002-opay-bank-transfer.sql` | OPay order fields on transactions | Checkout fails on the automated path |
+| `003-security-question.sql` | Password recovery columns | Signup rejects everyone: "Unknown column security_question" |
+| `004-free-trial.sql` | `is_trial`, `trial_claimed_at`, the trial plan | The Free trial tab says no trial plan exists |
+
+Run them in order, and only the ones your database has not had. They are
+written for an EXISTING database — a brand new install gets everything
+from `db/schema.sql` and `db/seed.sql`, and running a migration on top of
+that stops at "Duplicate column name" without applying the rest of the
+file.
+
+If a page starts returning "Something went wrong" right after an update,
+this is the first thing to check. Turn on `'debug' => true` in
+`private/config.php` for a moment and the real SQL error will say which
+column is missing.
 
 ### What it will never overwrite
 

@@ -82,7 +82,7 @@ user is `admin` with no password.
 ### 3. Wipe it
 
 ```
-/system reset-configuration no-defaults=yes skip-backup=yes
+/system reset-configuration skip-backup=yes
 ```
 
 It reboots with nothing on it. Reconnect by MAC again.
@@ -116,7 +116,7 @@ hotspot subnet:
 ```
 /interface wireguard print
 /ip address print
-/ip service set winbox address=10.5.50.0/24,<the BTH subnet>
+/ip service set winbox address=192.168.88.0/24,<the BTH subnet>
 ```
 
 **Test it before you leave: turn the compound WiFi off on your phone, go
@@ -161,6 +161,23 @@ filling in every minute.
 This is the part worth walking through slowly, because there is one step
 people do not expect.
 
+### If you have switched the free trial on
+
+Admin → Free trial. It ships off; nothing is given away until you turn it
+on. Once it is on, a new person sees a banner above the bundles offering
+one free bundle. Tapping it signs them up and claims it in one step, and
+they are online without paying — which is the point, and also the risk,
+so the numbers to watch are on that same screen.
+
+One per person, ever. When the data runs out or the time expires the
+trial ends by itself, exactly as a paid bundle does, because it *is* a
+plan — the router enforces it the same way.
+
+Two stop buttons, and they mean different things. **Stop giving out
+trials** closes it to new people and lets everyone already on one finish.
+**Stop and end the ones running now** takes it back from everybody within
+a minute. Use the first unless you have a reason for the second.
+
 ### Brand new person, first time
 
 1. They join **IB Gadgets** from their WiFi list. It is open — no password.
@@ -176,7 +193,11 @@ people do not expect.
 7. **They switch to mobile data to make the transfer.** Their bank app
    cannot work over your WiFi — the walled garden only allows your site.
    See the note below.
-8. They come back, upload the receipt screenshot on your site.
+8. They come back and upload the receipt screenshot on your site — **or
+   tap "I have sent the money — no receipt"**, which is there because the
+   WiFi sign-in window has no working file picker. Either way the payment
+   is already sitting in Admin → Payments; the receipt is evidence, not a
+   gate.
 9. You get the payment in **Admin → Payments**, check the money landed,
    and press **Approve**.
 10. Within 60 seconds the router has created their account.
@@ -206,6 +227,30 @@ account  →  choose bundle  →  pay  →  you approve  →  log in at the
 
 Only that last login moves them from "has an account" to "can browse", and
 it happens once per device, ever.
+
+### When someone forgets their password
+
+There is no email and no SMS in this system, so there is nothing to send
+a reset link through. Recovery runs on a security question the customer
+chose at signup: **Forgot your password?** on the login screen, enter the
+phone number, answer the question, set a new password, and they are
+logged in. You are not involved.
+
+Answers are matched loosely — capitals, spaces and a trailing full stop
+all ignored — because nobody retypes their home town the same way six
+months later, and being turned away over a capital letter is the same as
+having no recovery at all.
+
+Two things worth knowing:
+
+- **Accounts created before this existed have no question.** They see a
+  warning on their dashboard telling them to set one. Until they do,
+  recovery is not available to them and you would have to reset it by
+  hand.
+- **There is a WiFi password too**, and it is different from the website
+  password. It is printed on their dashboard, so anyone who can log into
+  the site can read it. That is why the website password is the one that
+  matters.
 
 ### The bank app problem — read this one
 
