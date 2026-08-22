@@ -48,26 +48,36 @@
 # only ever run one at a time. It only appears under the scheduler, under
 # load, which is the worst possible time to find it.
 #
-# The skip counter is the escape hatch. A genuinely wedged fetch would
-# otherwise hold the lock forever and sync would stop for good, silently.
-# After 5 refusals we assume the holder is dead and take the lock.
+# A genuinely wedged fetch would otherwise hold the lock forever and sync
+# would stop for good, silently. So the holder is given five minutes and
+# then assumed dead.
+#
+# Five MINUTES, not five refusals. Counting refusals looks equivalent and
+# is not: run the script by hand a few times while the scheduler is also
+# firing and the count reaches five in seconds, so the lock gets taken
+# from a cycle that is very much alive. That produces exactly the
+# concurrent cycles this lock exists to prevent, and concurrent cycles on
+# a 128MB router are what caused the out-of-memory reboots.
+#
+# Uptime is the clock because it always moves forward at the same rate
+# and needs no wall-clock time. Both globals vanish on reboot, which is
+# correct: after a reboot no cycle is running.
 # ---------------------------------------------------------------------
 :global ibgBusy
-:global ibgSkips
+:global ibgBusyAt
 
-:if ([:typeof $ibgSkips] != "num") do={ :set ibgSkips 0 }
+:local ibgNow [/system resource get uptime]
 
 :if ($ibgBusy = true) do={
-    :set ibgSkips ($ibgSkips + 1)
-    :if ($ibgSkips < 5) do={
-        :log warning ("ibg-sync: previous cycle still running, skipping (" . $ibgSkips . ")")
+    :if ([:typeof $ibgBusyAt] = "time" and ($ibgNow - $ibgBusyAt) < 5m) do={
+        :log warning "ibg-sync: previous cycle still running, skipping"
         :error "busy"
     }
-    :log warning "ibg-sync: previous cycle looks wedged, taking the lock"
+    :log warning "ibg-sync: previous cycle wedged for over 5m, taking the lock"
 }
 
-:set ibgSkips 0
 :set ibgBusy true
+:set ibgBusyAt $ibgNow
 
 :do {
 
