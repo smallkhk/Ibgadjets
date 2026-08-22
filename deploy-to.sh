@@ -68,6 +68,35 @@ else
 fi
 
 # ---------------------------------------------------------------------
+# Cache busting
+#
+# .htaccess tells browsers to keep CSS and JS for seven days, which is
+# right for customers on metered phone data and wrong every time we
+# deploy: the HTML is fresh, the JavaScript behind it is a week old, and
+# new buttons are simply absent. "Hard refresh" fixes it for whoever is
+# told to do that and nobody else — including every customer.
+#
+# So each deploy stamps a version onto the asset URLs. The file content
+# is identical; the URL is not, so browsers fetch it once and then cache
+# it properly again until the next deploy.
+#
+# Idempotent: an existing ?v= is replaced rather than appended to.
+# ---------------------------------------------------------------------
+if [ "$DRY" = "1" ]; then
+  echo
+  echo "  would stamp a fresh ?v= on the asset links in each .html"
+else
+  STAMP="$(date +%Y%m%d%H%M%S)"
+  echo
+  echo "Cache busting (?v=$STAMP)"
+  for f in "$DOC"/*.html; do
+    [ -f "$f" ] || continue
+    sed -i -E "s#(assets/(css|js)/[a-zA-Z0-9._-]+)(\?v=[0-9]+)?#\1?v=$STAMP#g" "$f"
+    echo "  stamped  $(basename "$f")"
+  done
+fi
+
+# ---------------------------------------------------------------------
 # The library code, but never the secrets
 # ---------------------------------------------------------------------
 echo
