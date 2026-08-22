@@ -102,7 +102,7 @@ fi
 echo
 echo "Private library (config.php and uploads/ are left alone)"
 mkdir -p "$PRIV"
-for item in lib bootstrap.php make-admin.php init-config.php config.example.php .htaccess; do
+for item in lib bootstrap.php make-admin.php init-config.php status.php config.example.php .htaccess; do
   [ -e "$SRC/private/$item" ] || continue
   if [ "$DRY" = "1" ]; then
     echo "  would update  private/$item"
