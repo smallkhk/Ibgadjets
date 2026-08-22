@@ -291,10 +291,46 @@ async function loadCustomers() {
           <button class="btn btn-ghost btn-sm mini" data-action="toggle-ban" data-id="${c.id}" data-status="${c.status}">
             ${c.status === 'active' ? 'Suspend' : 'Restore'}
           </button>
+          <button class="btn btn-danger btn-sm mini" style="margin-left:6px"
+                  data-action="del-customer" data-id="${c.id}" data-phone="${esc(c.phone)}">
+            Delete
+          </button>
         </td>
       </tr>`).join('')
       : `<tr><td colspan="8" class="empty">No customers found.</td></tr>`;
   } catch (err) { toast(err.message, true); }
+}
+
+/**
+ * Two-stage on purpose. The first attempt is refused by the server if the
+ * customer has ever paid, and comes back saying how much — so the second
+ * confirmation can state the actual cost of going ahead rather than a
+ * vague "are you sure".
+ */
+async function deleteCustomer(id, phone) {
+  if (!confirm(`Delete ${phone}? This removes their account, bundles, devices and payment history.`)) { return; }
+
+  try {
+    await API.post('api/admin.php?action=customer_delete', { id });
+    toast('Customer deleted');
+    loadCustomers();
+    return;
+  } catch (err) {
+    if (!err.data || !err.data.needs_force) { toast(err.message, true); return; }
+
+    const naira = '\u20a6' + Number(err.data.amount_naira || 0).toLocaleString('en-NG');
+    const ok = confirm(
+      `${phone} has ${err.data.payments} approved payment(s) totalling ${naira}.\n\n` +
+      `Deleting removes those from your revenue reports as well — past months will change.\n\n` +
+      `Suspend instead if you only want them offline. Delete anyway?`);
+    if (!ok) { return; }
+
+    try {
+      await API.post('api/admin.php?action=customer_delete', { id, force: '1' });
+      toast('Customer and payment history deleted');
+      loadCustomers();
+    } catch (e2) { toast(e2.message, true); }
+  }
 }
 
 async function setDevices(id, value) {
@@ -491,6 +527,7 @@ on('trial-on',         () => setTrial(true,  false));
 on('trial-off',        () => setTrial(false, false));
 on('trial-off-now',    () => setTrial(false, true));
 on('trial-plan-save',  () => saveTrialPlan());
+on('del-customer',     (el) => deleteCustomer(Number(el.dataset.id), el.dataset.phone));
 on('approve',          (el) => approve(Number(el.dataset.id)));
 on('reject',           (el) => reject(Number(el.dataset.id)));
 on('save-plan',        (el) => savePlan(Number(el.dataset.id)));

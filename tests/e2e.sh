@@ -347,6 +347,46 @@ SYNC=$(curl -s "$BASE/api/router-sync.php" -H "X-Sync-Key: $SYNC_KEY")
 IDX=$(printf '%s' "$SYNC" | php -r '$j=json_decode(stream_get_contents(STDIN),true); foreach(($j["users"]??[]) as $i=>$u){ if($u["username"]===$argv[1]){echo $i;exit;} } echo "";' "$ACCOUNT")
 want "the new bundle is whole" "$(jq_get "$SYNC" "users.$IDX.data_mb")" "5120"
 
+# ------------------------------------------------------ deleting people
+# The only action in the admin panel that destroys records instead of
+# changing them, so it gets checked rather than trusted.
+say "Deleting a customer"
+
+DPHONE="0803$(php -r 'echo random_int(1000000,9999999);')"
+DJ=$(mktemp)
+DCSRF=$(jq_get "$(curl -s -c "$DJ" "$BASE/api/auth.php?action=me")" csrf)
+curl -s -o /dev/null -b "$DJ" -c "$DJ" -X POST "$BASE/api/auth.php?action=signup" \
+  -H "Content-Type: application/json" -H "X-CSRF-Token: $DCSRF" \
+  -d "{\"phone\":\"$DPHONE\",\"password\":\"hunter2222\",\"type\":\"visitor\",\"security_question\":\"What is the name of your home town?\",\"security_answer\":\"Ibadan\"}"
+
+DID=$(curl -s -b "$AJ" "$BASE/api/admin.php?action=customers&q=$DPHONE" \
+  | php -r '$j=json_decode(stream_get_contents(STDIN),true); echo $j["customers"][0]["id"]??"";')
+
+DEL=$(curl -s -b "$AJ" -X POST "$BASE/api/admin.php?action=customer_delete" \
+  -H "Content-Type: application/json" -H "X-CSRF-Token: $ACSRF" -d "{\"id\":$DID}")
+want "a customer who never paid deletes" "$(jq_get "$DEL" ok)" "true"
+
+GONE=$(curl -s -b "$AJ" "$BASE/api/admin.php?action=customers&q=$DPHONE" \
+  | php -r '$j=json_decode(stream_get_contents(STDIN),true); echo count($j["customers"]??[]);')
+want "and is really gone" "$GONE" "0"
+
+# The paying customer from earlier in this run must be protected until
+# the caller says explicitly that losing the revenue record is intended.
+REFUSED=$(curl -s -b "$AJ" -X POST "$BASE/api/admin.php?action=customer_delete" \
+  -H "Content-Type: application/json" -H "X-CSRF-Token: $ACSRF" -d "{\"id\":$CUSTID}")
+want "a paying customer is refused" "$(jq_get "$REFUSED" ok)" "false"
+want "and the refusal says why" "$(jq_get "$REFUSED" needs_force)" "true"
+
+FORCED=$(curl -s -b "$AJ" -X POST "$BASE/api/admin.php?action=customer_delete" \
+  -H "Content-Type: application/json" -H "X-CSRF-Token: $ACSRF" -d "{\"id\":$CUSTID,\"force\":\"1\"}")
+want "force deletes them" "$(jq_get "$FORCED" ok)" "true"
+
+# Nothing may be left pointing at a customer that no longer exists.
+SYNC=$(curl -s "$BASE/api/router-sync.php" -H "X-Sync-Key: $SYNC_KEY")
+if printf '%s' "$SYNC" | grep -q "$ACCOUNT"; then bad "deleted customer leaves the router" "still listed"; else ok "deleted customer leaves the router"; fi
+
+rm -f "$DJ"
+
 # --------------------------------------------------------------------- end
 printf '\n\033[1m%d passed, %d failed\033[0m\n' "$PASS" "$FAIL"
 rm -f "$CJ" "$AJ"

@@ -72,6 +72,85 @@ case 'overview':
                                     [setting_int('tether_grace_hits', 30)]),
     ]]);
 
+/**
+ * Delete a customer and everything attached to them.
+ *
+ * Owner only, and deliberately hard to do by accident, because it is the
+ * one action here that destroys records rather than changing them.
+ *
+ * A customer who has paid you is refused unless `force` is passed. Their
+ * transactions are your revenue history: delete them and the Reports tab
+ * quietly starts reporting a smaller number for a month that has already
+ * been and gone, with nothing to show what changed. Suspension exists for
+ * "this person should not be online" — this is for clearing out test
+ * accounts and mistakes.
+ *
+ * The router needs no telling. Removing the subscriptions takes the
+ * customer off the desired-state list, and the next poll revokes the
+ * hotspot account and cuts any live session.
+ */
+case 'customer_delete':
+    require_method('POST');
+    csrf_check();
+    require_owner();
+
+    $id = (int) want('id');
+    $c  = one('SELECT * FROM customers WHERE id = ?', [$id]);
+    if (!$c) {
+        fail('No such customer', 404);
+    }
+
+    $paidCount = (int) scalar(
+        "SELECT COUNT(*) FROM transactions WHERE customer_id = ? AND status = 'success'", [$id]);
+    $paidTotal = (float) scalar(
+        "SELECT COALESCE(SUM(amount_naira),0) FROM transactions WHERE customer_id = ? AND status = 'success'", [$id]);
+
+    $force = in_array((string) input('force', '0'), ['1', 'true', 'yes'], true);
+
+    if ($paidCount > 0 && !$force) {
+        fail('This customer has paid you before. Deleting them removes that from your records too.', 409, [
+            'needs_force'  => true,
+            'payments'     => $paidCount,
+            'amount_naira' => $paidTotal,
+        ]);
+    }
+
+    tx_begin();
+    try {
+        // Order matters: children before parents, or the foreign keys
+        // refuse. sessions has no constraint but would be left pointing
+        // at a customer that no longer exists.
+        q('DELETE FROM sessions      WHERE customer_id = ?', [$id]);
+        q('DELETE FROM devices       WHERE customer_id = ?', [$id]);
+        q('DELETE FROM transactions  WHERE customer_id = ?', [$id]);
+        q('DELETE FROM subscriptions WHERE customer_id = ?', [$id]);
+        q('DELETE FROM customers     WHERE id = ?',          [$id]);
+
+        // Written inside the transaction so the audit trail cannot
+        // survive a rollback, or be missing after a commit.
+        q('INSERT INTO sync_log (action, payload, result) VALUES (?,?,?)', [
+            'customer_delete',
+            json_encode([
+                'phone'     => $c['phone'],
+                'name'      => $c['full_name'],
+                'payments'  => $paidCount,
+                'amount'    => $paidTotal,
+                'forced'    => $force,
+                'by'        => current_admin()['email'] ?? '?',
+            ]),
+            'customer and all records removed',
+        ]);
+        tx_commit();
+    } catch (Throwable $e) {
+        tx_rollback();
+        throw $e;
+    }
+
+    ok([
+        'deleted'  => $c['phone'],
+        'payments' => $paidCount,
+    ]);
+
 // =====================================================================
 // Free trial
 // =====================================================================
