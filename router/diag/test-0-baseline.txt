@@ -1,0 +1,12 @@
+# TEST 0 — baseline. Touches nothing, fetches nothing.
+# Paste as a NEW script named ibg-test, policy: read,write,test,sensitive
+# Run it. This proves the script runner itself is healthy.
+#
+# If the router reboots on THIS, the script is innocent — you have a
+# power or hardware fault, not a software one.
+
+:log info "ibg-test0: hello"
+:log info ("ibg-test0: uptime=" . [/system resource get uptime])
+:log info ("ibg-test0: free-memory=" . [/system resource get free-memory])
+:log info ("ibg-test0: version=" . [/system resource get version])
+:log info "ibg-test0: SURVIVED"

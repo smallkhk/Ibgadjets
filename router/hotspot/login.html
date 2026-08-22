@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="pragma" content="no-cache">
+<meta http-equiv="expires" content="-1">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IB Gadgets Telecom — Sign in</title>
+<!--
+  MIKROTIK HOTSPOT LOGIN PAGE
+  Upload to the router at /hotspot/login.html (Winbox → Files, or FTP).
+
+  100% offline: no CDN fonts, no external images, no external stylesheets.
+  A customer who has not paid yet cannot reach the internet, so anything
+  this page has to fetch is a thing that will not load.
+
+  The only external file is /md5.js, which RouterOS already ships in the
+  hotspot folder. Do not delete it.
+
+  The domain is already set to ibphone.eclipselivecam.online. To change
+  it later run:  bash set-domain.sh yourdomain.com
+
+  BEFORE UPLOADING, edit the support phone number at the bottom.
+
+  Preview it without a router:  php router/preview-login.php
+-->
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  min-height:100vh;display:grid;place-items:center;padding:20px;
+  background:#0A1430;color:#F2EEE4;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;opacity:.4;
+  background:
+    radial-gradient(700px 500px at 80% -10%,rgba(57,223,242,.18),transparent 62%),
+    radial-gradient(600px 420px at 5% 15%,rgba(255,61,138,.14),transparent 60%);
+}
+.box{width:100%;max-width:380px;position:relative;z-index:1}
+.brand{display:flex;align-items:center;justify-content:center;gap:11px;margin-bottom:8px}
+.brand svg{width:38px;height:38px}
+.brand b{font-size:19px;font-weight:800;letter-spacing:-.02em;line-height:1.1}
+.brand small{display:block;font-size:9px;letter-spacing:.2em;color:#93A3C9;font-weight:400;text-transform:uppercase}
+.ssid{
+  display:flex;align-items:center;justify-content:center;gap:8px;margin:0 auto 20px;width:max-content;
+  font-size:12px;color:#4BE8A8;border:1px solid rgba(75,232,168,.3);padding:8px 15px;
+  border-radius:999px;background:rgba(75,232,168,.07);font-family:ui-monospace,monospace;
+}
+.dot{width:7px;height:7px;border-radius:50%;background:#4BE8A8}
+.card{
+  background:#101E44;border:1px solid rgba(255,255,255,.18);border-radius:26px;padding:28px;
+  box-shadow:0 40px 90px -40px #000;
+}
+h1{font-size:22px;letter-spacing:-.02em;margin-bottom:5px}
+.sub{color:#93A3C9;font-size:14px;margin-bottom:22px;line-height:1.5}
+label{display:block;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#93A3C9;margin-bottom:7px;font-family:ui-monospace,monospace}
+input{
+  width:100%;padding:13px 15px;border-radius:10px;background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.1);color:#F2EEE4;font-size:16px;margin-bottom:15px;
+}
+input:focus{outline:2px solid #39DFF2;outline-offset:1px;border-color:#39DFF2;background:rgba(255,255,255,.08)}
+.btn{
+  width:100%;display:block;text-align:center;padding:14px;border-radius:999px;
+  font-weight:700;font-size:15px;border:0;cursor:pointer;text-decoration:none;
+}
+.go{background:#39DFF2;color:#052029;margin-top:6px}
+.go:active{transform:translateY(1px)}
+.alt{background:none;border:1px solid rgba(255,255,255,.18);color:#F2EEE4;margin-top:10px}
+.err{
+  background:rgba(255,61,138,.14);border:1px solid rgba(255,61,138,.4);color:#FF8FBA;
+  padding:11px 14px;border-radius:10px;font-size:13.5px;margin-bottom:18px;
+}
+.foot{text-align:center;color:#93A3C9;font-size:12.5px;margin-top:18px;line-height:1.6}
+.foot a{color:#39DFF2;text-decoration:none}
+hr{border:0;border-top:1px solid rgba(255,255,255,.1);margin:22px 0}
+</style>
+</head>
+<body>
+
+$(if chap-id)
+<!--
+  CHAP login. The password is hashed in the browser and the plain one
+  never crosses the air.
+
+  This whole block only exists when the router actually offers CHAP, i.e.
+  when the hotspot profile has http-chap in login-by. That guard matters:
+  if CHAP is off, RouterOS leaves "$(chap-id)" in the page as literal
+  text, and any script testing it as a string would happily hash the
+  password with garbage and fail every login for reasons nothing reports.
+
+  The visible form is never touched. Its values are copied into this
+  hidden one, which is what submits — so the user's password stays
+  readable in the field if they come back to the page.
+-->
+<form name="sendin" action="$(link-login-only)" method="post" style="display:none">
+  <input type="hidden" name="username">
+  <input type="hidden" name="password">
+  <input type="hidden" name="dst" value="$(link-orig)">
+  <input type="hidden" name="popup" value="false">
+</form>
+<script type="text/javascript" src="/md5.js"></script>
+<script type="text/javascript">
+  var IBG_CHAP_ID = '$(chap-id)';
+  var IBG_CHAP_CHALLENGE = '$(chap-challenge)';
+</script>
+$(endif)
+
+<script type="text/javascript">
+/*
+  The customer types their phone number. The router does not store it as
+  a phone number.
+
+  RouterOS builds its account list from JSON the site sends, and its JSON
+  parser reads "08153329197" as a NUMBER — so the leading zero is gone by
+  the time the account exists, and the account is called 8153329197. A
+  customer typing their real number would never match.
+
+  So the account name carries a prefix that cannot be read as a number,
+  and this function applies the same transformation to whatever is typed.
+  Digits only, then "ib" in front: 0803 000 0000 and 08030000000 and
+  ib08030000000 all normalise to the same thing, which means spaces,
+  a stray paste of the prefixed name, and a failed login that refills the
+  field all behave.
+*/
+function ibgAccount(typed) {
+  var digits = String(typed).replace(/\D/g, '');
+
+  // +234 815 332 9197 is the same person as 0815 332 9197, and phones
+  // that autofill from a contact card hand over the international form.
+  // Signup stores the 0-prefixed number, so fold one into the other.
+  if (digits.length === 13 && digits.indexOf('234') === 0) {
+    digits = '0' + digits.substring(3);
+  }
+
+  return 'ib' + digits;
+}
+
+function ibgSubmit() {
+  var account = ibgAccount(document.login.username.value);
+
+  // IBG_CHAP_ID only exists when the router offered CHAP. When it did
+  // not, that whole block is absent from the page and the visible form
+  // posts on its own — so the field itself has to carry the account name.
+  if (typeof IBG_CHAP_ID === 'undefined') {
+    document.login.username.value = account;
+    return true;
+  }
+
+  document.sendin.username.value = account;
+  document.sendin.password.value =
+      hexMD5(IBG_CHAP_ID + document.login.password.value + IBG_CHAP_CHALLENGE);
+  document.sendin.submit();
+  return false;
+}
+</script>
+
+<div class="box">
+
+  <div class="brand">
+    <svg viewBox="0 0 40 40" fill="none" aria-hidden="true">
+      <circle cx="20" cy="20" r="19" stroke="#39DFF2" stroke-width="1.4" opacity=".45"/>
+      <path d="M20 30V19" stroke="#F2EEE4" stroke-width="2.4" stroke-linecap="round"/>
+      <path d="M13 19a7 7 0 0 1 14 0" stroke="#FF3D8A" stroke-width="2.4" stroke-linecap="round"/>
+      <path d="M8.5 19a11.5 11.5 0 0 1 23 0" stroke="#FFB03D" stroke-width="2.2" stroke-linecap="round" opacity=".8"/>
+      <circle cx="20" cy="32" r="2.6" fill="#39DFF2"/>
+    </svg>
+    <b>IB Gadgets<small>Telecom</small></b>
+  </div>
+
+  <div class="ssid"><span class="dot"></span> Connected to IB Gadgets</div>
+
+  <div class="card">
+
+    $(if error)<div class="err">$(error)</div>$(endif)
+
+    <h1>Sign in to browse</h1>
+    <p class="sub">Use the phone number and password you signed up with.
+       You only do this once on this device — after today it connects on its own.</p>
+
+    <!-- onsubmit is unconditional now. The old version only ran on CHAP
+         routers, which left the non-CHAP path posting the raw phone
+         number at an account that is not called that. -->
+    <form name="login" action="$(link-login-only)" method="post" onsubmit="return ibgSubmit()">
+      <input type="hidden" name="dst" value="$(link-orig)">
+      <input type="hidden" name="popup" value="false">
+
+      <label for="u">Phone number</label>
+      <!-- value="$(username)" keeps what they typed when a login is
+           rejected. Without it a wrong password wipes the field and they
+           key eleven digits again, on a phone, while annoyed. -->
+      <input id="u" name="username" type="tel" inputmode="numeric"
+             value="$(username)" placeholder="0803 000 0000"
+             autocomplete="username" autofocus required>
+
+      <label for="p">Password</label>
+      <input id="p" name="password" type="password"
+             placeholder="Your password" autocomplete="current-password" required>
+
+      <button class="btn go" type="submit">Connect me</button>
+    </form>
+
+    <hr>
+
+    <!-- Reachable without a plan because the walled garden allows it.
+         Must match the dst-host entries in router/setup.rsc. -->
+    <a class="btn alt" href="https://ibphone.eclipselivecam.online/?from=hotspot">Create account &amp; buy data</a>
+
+    <p class="foot">
+      No plan yet? Tap above — you can reach our site<br>and pay without internet.<br><br>
+      Need help? Call <a href="tel:+2348000000000">0800 000 0000</a>
+    </p>
+  </div>
+</div>
+
+</body>
+</html>

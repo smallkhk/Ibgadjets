@@ -1,0 +1,105 @@
+:local ibgUrl "https://ibphone.eclipselivecam.online/api/router-sync.php"
+:local ibgKey "PUT-YOUR-64-HEX-SYNC-KEY-HERE"
+:local mark "ibg"
+:local me "ibg-t6"
+
+/system script set [find name=$me] comment="A-start"
+
+:do {
+    :local res [/tool fetch url=$ibgUrl http-method=get \
+        http-header-field=("X-Sync-Key: " . $ibgKey . ",Accept: application/json") \
+        output=user as-value]
+    :local data ($res->"data")
+    /system script set [find name=$me] comment="B-fetched"
+
+    :if ([:pick $data 0 1] != "{") do={ :error "notjson" }
+    :local doc [:deserialize from=json value=$data]
+    /system script set [find name=$me] comment="C-parsed"
+
+    :local users ($doc->"users")
+    :local blocked ($doc->"blocked_macs")
+    :local wanted [:toarray ""]
+    :local applied ""
+
+    :foreach u in=$users do={
+        :local uname ($u->"username")
+        :local pass  ($u->"password")
+        :local rate  ($u->"rate_limit")
+        :local share ($u->"shared_users")
+        :local sub   ($u->"sub_id")
+        :local dmb   ($u->"data_mb")
+        :local bytes 0
+        :if ([:typeof $dmb] = "num") do={ :set bytes ($dmb * 1048576) }
+        :set ($wanted->$uname) true
+        :local found [/ip hotspot user find where name=$uname]
+        :if ([:len $found] = 0) do={
+            /ip hotspot user add name=$uname password=$pass \
+                rate-limit=$rate shared-users=$share \
+                limit-bytes-total=$bytes comment=$mark
+        } else={
+            /ip hotspot user set $found password=$pass \
+                rate-limit=$rate shared-users=$share \
+                limit-bytes-total=$bytes comment=$mark disabled=no
+        }
+        :if ([:len $applied] > 0) do={ :set applied ($applied . ",") }
+        :set applied ($applied . $sub)
+    }
+    /system script set [find name=$me] comment="D-provisioned"
+
+    :foreach h in=[/ip hotspot user find where comment=$mark] do={
+        :local hname [/ip hotspot user get $h name]
+        :if ([:typeof ($wanted->$hname)] = "nothing") do={
+            :foreach a in=[/ip hotspot active find where user=$hname] do={
+                /ip hotspot active remove $a
+            }
+            /ip hotspot user remove $h
+        }
+    }
+    /system script set [find name=$me] comment="E-revoked"
+
+    /ip hotspot ip-binding remove [find comment="ibg-block"]
+    :foreach m in=$blocked do={
+        /ip hotspot ip-binding add mac-address=$m type=blocked comment="ibg-block"
+        :foreach a in=[/ip hotspot active find where mac-address=$m] do={
+            /ip hotspot active remove $a
+        }
+    }
+    /system script set [find name=$me] comment="F-blocked"
+
+    :local usage ""
+    :foreach h in=[/ip hotspot user find where comment=$mark] do={
+        :local hname [/ip hotspot user get $h name]
+        :local bin   [/ip hotspot user get $h bytes-in]
+        :local bout  [/ip hotspot user get $h bytes-out]
+        :local mb    (($bin + $bout) / 1048576)
+        :local hmac ""
+        :local haddr ""
+        :local tether 0
+        :local act [/ip hotspot active find where user=$hname]
+        :if ([:len $act] > 0) do={
+            :set hmac [/ip hotspot active get [:pick $act 0] mac-address]
+            :set haddr [/ip hotspot active get [:pick $act 0] address]
+            :if ([:len [/ip firewall address-list find where list="ibg-tethered" and address=$haddr]] > 0) do={
+                :set tether 1
+            }
+        }
+        :if ([:len $usage] > 0) do={ :set usage ($usage . ",") }
+        :set usage ($usage . "{\"username\":\"" . $hname . "\"" . \
+            ",\"used_mb\":" . $mb . \
+            ",\"mac\":\"" . $hmac . "\"" . \
+            ",\"ip\":\"" . $haddr . "\"" . \
+            ",\"tethered_hits\":" . $tether . "}")
+    }
+    /system script set [find name=$me] comment="G-usage"
+
+    :local payload ("{\"applied\":[" . $applied . "],\"usage\":[" . $usage . "]}")
+    /tool fetch url=$ibgUrl http-method=post \
+        http-header-field=("X-Sync-Key: " . $ibgKey . ",Content-Type: application/json,Accept: application/json") \
+        http-data=$payload output=user as-value
+    /system script set [find name=$me] comment="H-posted"
+
+} on-error={
+    /system script set [find name=$me] comment="X-errored"
+}
+
+/system script set [find name=$me] comment="Z-done"

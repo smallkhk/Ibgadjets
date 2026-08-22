@@ -1,0 +1,22 @@
+# Secrets — never commit. Copy private/config.example.php to this.
+private/config.php
+
+# Uploaded bank receipts. Customer data, not source.
+private/uploads/
+
+# Editors / OS
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.idea/
+.vscode/
+
+# Logs
+*.log
+
+# Build output
+dist/
+
+# Generated captive-portal previews
+router/preview/

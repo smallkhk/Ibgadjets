@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — IB Gadgets Telecom</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="stylesheet" href="assets/css/fonts.css">
+<link rel="stylesheet" href="assets/css/app.css">
+<style>
+  .adm-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:26px 0 24px;
+    border-bottom:1px solid var(--line);padding-bottom:14px}
+  .adm-tabs .tab{padding:9px 18px;font-size:14px}
+  .adm-tabs .tab.on{background:var(--beam);color:#052029}
+  .editor{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+  .mini{font-size:13px;padding:9px 12px}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="index.html">
+      <svg class="brand-mark" viewBox="0 0 34 34" fill="none" aria-hidden="true">
+        <circle cx="17" cy="17" r="16" stroke="#39DFF2" stroke-opacity=".45"/>
+        <circle cx="17" cy="17" r="3" fill="#FFB03D"/>
+      </svg>
+      <span>IB Gadgets<small>Admin</small></span>
+    </a>
+    <div class="nav-cta" id="admNav"></div>
+  </div>
+</nav>
+
+<main class="wrap" style="padding-top:40px;padding-bottom:90px">
+
+  <!-- login -->
+  <div id="gate" class="panel" style="max-width:420px;margin:60px auto">
+    <h3>Admin sign in</h3>
+    <form data-submit="admin-login" style="margin-top:18px">
+      <div class="field"><label for="a-email">Email</label>
+        <input id="a-email" type="email" autocomplete="username" required></div>
+      <div class="field"><label for="a-pass">Password</label>
+        <input id="a-pass" type="password" autocomplete="current-password" required></div>
+      <button class="btn btn-primary btn-block" type="submit">Sign in</button>
+    </form>
+  </div>
+
+  <div id="app" class="hide">
+    <div class="adm-tabs" id="admTabs"></div>
+
+    <!-- OVERVIEW -->
+    <section id="v-over" class="advw">
+      <div class="grid-stats" id="statGrid"></div>
+      <div class="panel" style="margin-top:20px">
+        <h3>Router conversation</h3>
+        <p class="hint" style="margin-bottom:14px">The router calls in every 60 seconds. If this stops moving, the router cannot reach the site.</p>
+        <div class="tbl-scroll"><table class="tbl">
+          <thead><tr><th>When</th><th>Action</th><th>Result</th></tr></thead>
+          <tbody id="logRows"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <!-- TRIAL -->
+    <section id="v-trial" class="advw hide">
+      <div class="panel">
+        <h3>Free trial</h3>
+        <p class="hint" style="margin-bottom:16px">
+          One free bundle per person, ever. It ends by itself when the data runs
+          out or the time expires — the router enforces both, the same way it
+          does for a paid bundle.
+        </p>
+        <div class="grid-stats" id="trialStats"></div>
+
+        <div style="margin-top:20px" id="trialControls"></div>
+      </div>
+
+      <div class="panel" style="margin-top:20px">
+        <h3>What the trial gives</h3>
+        <p class="hint" style="margin-bottom:16px">
+          Changing this affects people who claim from now on. Anyone already on a
+          trial keeps what they were given — the router is enforcing that figure
+          already, and moving it under them mid-bundle would be unfair.
+        </p>
+        <form data-submit="trial-plan-save">
+          <div class="row-2">
+            <div class="field">
+              <label for="tr-mb">Data (MB)</label>
+              <input id="tr-mb" type="number" min="1" step="1">
+              <div class="hint">5120 MB is 5 GB.</div>
+            </div>
+            <div class="field">
+              <label for="tr-hours">Valid for (hours)</label>
+              <input id="tr-hours" type="number" min="1" step="1">
+              <div class="hint">168 hours is a week.</div>
+            </div>
+          </div>
+          <button class="btn btn-ghost" type="submit">Save trial size</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- REPORTS -->
+    <section id="v-rep" class="advw hide">
+      <div class="panel">
+        <h3>Money in</h3>
+        <p class="hint" style="margin-bottom:14px">
+          Only payments you actually approved are counted. Pending ones are
+          somebody's claim that they sent money, not money that arrived.
+        </p>
+        <div class="field" style="max-width:220px">
+          <label for="repDays">Period</label>
+          <select id="repDays" data-change="report-days">
+            <option value="7">Last 7 days</option>
+            <option value="30" selected>Last 30 days</option>
+            <option value="90">Last 90 days</option>
+            <option value="365">Last year</option>
+          </select>
+        </div>
+        <div class="grid-stats" id="repStats" style="margin-top:16px"></div>
+      </div>
+
+      <div class="panel" style="margin-top:20px">
+        <h3>Day by day</h3>
+        <div class="tbl-scroll"><table class="tbl">
+          <thead><tr><th>Day</th><th>Payments</th><th>Revenue</th></tr></thead>
+          <tbody id="repDaily"></tbody>
+        </table></div>
+      </div>
+
+      <div class="panel" style="margin-top:20px">
+        <h3>Which bundles sell</h3>
+        <div class="tbl-scroll"><table class="tbl">
+          <thead><tr><th>Bundle</th><th>Sold</th><th>Revenue</th></tr></thead>
+          <tbody id="repPlans"></tbody>
+        </table></div>
+      </div>
+
+      <div class="panel" style="margin-top:20px">
+        <h3>Compound vs visitors</h3>
+        <p class="hint" style="margin-bottom:14px">Two different businesses. This says which one is paying the bills.</p>
+        <div class="tbl-scroll"><table class="tbl">
+          <thead><tr><th>Who</th><th>Payments</th><th>Revenue</th></tr></thead>
+          <tbody id="repAudience"></tbody>
+        </table></div>
+      </div>
+
+      <div class="panel" style="margin-top:20px">
+        <h3>Best customers</h3>
+        <div class="tbl-scroll"><table class="tbl">
+          <thead><tr><th>Customer</th><th>Payments</th><th>Spent</th></tr></thead>
+          <tbody id="repTop"></tbody>
+        </table></div>
+      </div>
+
+      <div class="panel" style="margin-top:20px">
+        <h3>How they paid</h3>
+        <div class="tbl-scroll"><table class="tbl">
+          <thead><tr><th>Method</th><th>Payments</th><th>Revenue</th></tr></thead>
+          <tbody id="repMethod"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <!-- PAYMENTS -->
+    <section id="v-pay" class="advw hide">
+      <div class="panel">
+        <h3>Payments waiting <span class="pill warn" id="payCount">0</span></h3>
+        <p class="hint" style="margin-bottom:16px">Check the money landed, then approve. The bundle goes live on the router within a minute.</p>
+        <div class="tbl-scroll"><table class="tbl">
+          <thead><tr><th>Reference</th><th>Customer</th><th>Plan</th><th>Amount</th><th>Method</th><th>Receipt</th><th>When</th><th></th></tr></thead>
+          <tbody id="payRows"></tbody>
+        </table></div>
+      </div>
+      <div class="panel" style="margin-top:18px">
+        <h3>Everything else</h3>
+        <div class="tbl-scroll"><table class="tbl">
+          <thead><tr><th>Reference</th><th>Customer</th><th>Amount</th><th>Status</th><th>When</th></tr></thead>
+          <tbody id="payAllRows"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <!-- CUSTOMERS -->
+    <section id="v-cust" class="advw hide">
+      <div class="panel">
+        <h3>Customers</h3>
+        <div class="field" style="max-width:320px">
+          <input id="custSearch" placeholder="Search phone, name or flat" data-change="search-customers">
+        </div>
+        <p class="hint" style="margin-bottom:14px">
+          <strong>Devices</strong> is how many phones this person may use at once.
+          Leave it blank to follow whatever their bundle allows, or type a number to
+          override it — that takes effect on the router within a minute.
+        </p>
+        <div class="tbl-scroll"><table class="tbl">
+          <thead><tr><th>Phone</th><th>Name</th><th>Type</th><th>Plan</th><th>Expires</th><th>Devices</th><th>Status</th><th></th></tr></thead>
+          <tbody id="custRows"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <!-- PLANS -->
+    <section id="v-plans" class="advw hide">
+      <div class="panel">
+        <h3>Bundles</h3>
+        <p class="hint" style="margin-bottom:16px">
+          Price, data, both speed caps, how long it lasts and how many devices — all editable.
+          Saving a change re-applies it to everyone currently on that bundle.
+        </p>
+        <div class="tbl-scroll"><table class="tbl">
+          <thead><tr>
+            <th>Name</th><th>For</th><th>Price ₦</th><th>Data</th>
+            <th>Down Mbps</th><th>Up Mbps</th><th>Hours</th><th>Devices</th>
+            <th>Tier</th><th>Live</th><th></th>
+          </tr></thead>
+          <tbody id="planRows"></tbody>
+        </table></div>
+        <button class="btn btn-beam btn-sm" style="margin-top:18px" data-action="new-plan">Add a bundle</button>
+      </div>
+    </section>
+
+    <!-- LIVE -->
+    <section id="v-live" class="advw hide">
+      <div class="panel">
+        <h3>Online right now</h3>
+        <p class="hint" style="margin-bottom:14px">
+          Reported by the router each cycle. A <span class="pill bad">sharing</span> flag means
+          the traffic from that device shows a TTL one hop short — a phone acting as a hotspot
+          for somebody else.
+        </p>
+        <div class="tbl-scroll"><table class="tbl">
+          <thead><tr><th>Customer</th><th>Device</th><th>IP</th><th>Used</th><th>Last seen</th><th>Sharing</th><th></th></tr></thead>
+          <tbody id="liveRows"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section id="v-set" class="advw hide">
+      <div class="panel">
+        <h3>Settings</h3>
+        <p class="hint" style="margin-bottom:16px">
+          Bank details here are what customers see at checkout. The sync key is not
+          editable from the web — it lives in <span class="num">private/config.php</span>.
+        </p>
+        <div id="setFields"></div>
+        <button class="btn btn-primary" style="margin-top:16px" data-action="save-settings">Save settings</button>
+      </div>
+    </section>
+  </div>
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="assets/js/api.js"></script>
+<script src="assets/js/admin.js"></script>
+</body>
+</html>

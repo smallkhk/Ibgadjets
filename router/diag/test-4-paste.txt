@@ -1,0 +1,20 @@
+:local ibgUrl "https://ibphone.eclipselivecam.online/api/router-sync.php"
+:local ibgKey "21e1e9a7a22d47e43e9fd75d52b998821336d3c99e653d3747cb57069e6aab55"
+
+:log info ("ibg-mem: START free=" . [/system resource get free-memory] . " hdd=" . [/system resource get free-hdd-space])
+
+:local i 0
+:while ($i < 20) do={
+    :set i ($i + 1)
+    :do {
+        :local res [/tool fetch url=$ibgUrl http-method=get http-header-field=("X-Sync-Key: " . $ibgKey) output=user as-value]
+        :local d ($res->"data")
+        :log info ("ibg-mem: pass " . $i . " bytes=" . [:len $d] . " free=" . [/system resource get free-memory])
+    } on-error={
+        :log warning ("ibg-mem: pass " . $i . " FETCH FAILED free=" . [/system resource get free-memory])
+    }
+    :delay 2s
+}
+
+:log info ("ibg-mem: END free=" . [/system resource get free-memory])
+:log info "ibg-mem: SURVIVED"

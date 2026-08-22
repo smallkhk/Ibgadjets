@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My account — IB Gadgets Telecom</title>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="assets/css/fonts.css">
+<link rel="stylesheet" href="assets/css/app.css">
+</head>
+<body>
+
+<nav class="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="index.html">
+      <svg class="brand-mark" viewBox="0 0 34 34" fill="none" aria-hidden="true">
+        <circle cx="17" cy="17" r="16" stroke="#39DFF2" stroke-opacity=".45"/>
+        <path d="M17 6 A11 11 0 0 1 28 17" stroke="#39DFF2" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="17" cy="17" r="3" fill="#FFB03D"/>
+      </svg>
+      <span>IB Gadgets<small>Telecom</small></span>
+    </a>
+    <div class="nav-cta">
+      <a class="btn btn-ghost btn-sm" href="index.html#plans">Buy data</a>
+      <button class="btn btn-primary btn-sm" data-action="logout">Log out</button>
+    </div>
+  </div>
+</nav>
+
+<main class="wrap" style="padding-top:44px;padding-bottom:80px">
+
+  <div id="gate" class="panel" style="max-width:420px;margin:60px auto;text-align:center">
+    <h3>You need to log in</h3>
+    <p class="hint" style="margin:12px 0 20px">Your phone number is your username.</p>
+    <a class="btn btn-primary btn-block" href="index.html">Go to the site</a>
+  </div>
+
+  <div id="app" class="hide">
+
+    <span class="eyebrow">My account</span>
+    <h2 style="margin:14px 0 8px" id="hello">—</h2>
+    <p class="lede" id="whoami">—</p>
+
+    <!-- current plan -->
+    <div class="panel" style="margin-top:30px" id="currentPanel">
+      <h3>Current bundle</h3>
+      <div id="currentBody"><p class="empty">Loading…</p></div>
+    </div>
+
+    <!-- wifi login -->
+    <div class="panel" style="margin-top:18px">
+      <h3>Your WiFi login</h3>
+      <p class="hint" style="margin-bottom:14px">
+        You only type these once per device. After the first login the router remembers
+        your phone and connects it automatically.
+      </p>
+      <div class="bank-card" style="margin-bottom:0">
+        <div class="bank-row"><span class="k">Network</span><span class="v">IB Gadgets</span></div>
+        <div class="bank-row"><span class="k">Username</span><span class="v num" id="wifiUser">—</span></div>
+        <div class="bank-row">
+          <span class="k">Password</span>
+          <span class="v num" id="wifiPass">—</span>
+        </div>
+      </div>
+      <button class="btn btn-ghost btn-sm" style="margin-top:14px" data-action="copy-wifi">Copy login</button>
+    </div>
+
+    <!-- devices -->
+    <div class="panel" style="margin-top:18px">
+      <h3>Your devices <span class="pill dim" id="devCount">—</span></h3>
+      <p class="hint" style="margin-bottom:14px">
+        Devices that have connected on this account. Need more than your bundle allows?
+        Message us and we can raise your limit.
+      </p>
+      <div class="tbl-scroll"><table class="tbl">
+        <thead><tr><th>Device</th><th>Last seen</th><th>Status</th></tr></thead>
+        <tbody id="devRows"></tbody>
+      </table></div>
+    </div>
+
+    <!-- account security -->
+    <div class="panel" style="margin-top:18px">
+      <h3>Your password</h3>
+
+      <!-- Shown only to accounts with no security question — the ones
+           created before recovery existed. Without this they have no way
+           back in and every forgotten password is a phone call. -->
+      <div id="secWarn" class="hide" style="margin-bottom:18px">
+        <p class="hint" style="color:var(--warn)">
+          You have no security question set. If you forget your password there is
+          no way back into this account. Set one now — it takes ten seconds.
+        </p>
+      </div>
+
+      <form id="secForm" data-submit="save-security">
+        <div class="field">
+          <label for="d-secq">Security question</label>
+          <select id="d-secq"></select>
+        </div>
+        <div class="field">
+          <label for="d-seca">Your answer</label>
+          <input id="d-seca" autocomplete="off" placeholder="Ibadan" required>
+          <div class="hint">Capital letters and spaces do not matter.</div>
+        </div>
+        <div class="field hide" id="secPassField">
+          <label for="d-secpass">Your password</label>
+          <input id="d-secpass" type="password" autocomplete="current-password" placeholder="Confirm it is you">
+          <div class="hint">Needed because you already have a question set.</div>
+        </div>
+        <button class="btn btn-ghost" type="submit">Save security question</button>
+      </form>
+
+      <hr style="border:0;border-top:1px solid rgba(255,255,255,.1);margin:22px 0">
+
+      <form id="pwForm" data-submit="change-password">
+        <div class="field">
+          <label for="d-oldpass">Current password</label>
+          <input id="d-oldpass" type="password" autocomplete="current-password" required>
+        </div>
+        <div class="field">
+          <label for="d-newpass">New password</label>
+          <input id="d-newpass" type="password" autocomplete="new-password" placeholder="At least 6 characters" required>
+        </div>
+        <button class="btn btn-ghost" type="submit">Change password</button>
+      </form>
+    </div>
+
+    <!-- history -->
+    <div class="panel" style="margin-top:18px">
+      <h3>Payment history</h3>
+      <div class="tbl-scroll"><table class="tbl">
+        <thead><tr><th>Reference</th><th>Plan</th><th>Amount</th><th>Method</th><th>Status</th><th>Date</th></tr></thead>
+        <tbody id="txRows"></tbody>
+      </table></div>
+    </div>
+
+  </div>
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="assets/js/api.js"></script>
+<script src="assets/js/dashboard.js"></script>
+</body>
+</html>
