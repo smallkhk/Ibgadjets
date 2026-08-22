@@ -129,5 +129,8 @@ fi
 echo "Done. Check the site:"
 echo "  curl -s https://ibphone.eclipselivecam.online/api/plans.php | head -c 80"
 echo
-echo "If a page looks unchanged in your browser, hard-refresh it"
-echo "(Ctrl+Shift+R). The old JavaScript will be cached otherwise."
+echo "Then check the health of the whole thing:"
+echo "  php $PRIV/status.php"
+echo
+echo "No hard-refresh needed. The asset links carry a fresh version"
+echo "stamp, so every browser picks this up on its own."
