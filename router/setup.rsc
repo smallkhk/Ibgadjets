@@ -66,6 +66,29 @@ set wlan2 mode=ap-bridge band=5ghz-a/n/ac channel-width=20/40/80mhz-eeeC ssid="I
 # invalid and no amount of hotspot configuration will fix it.
 # ---------------------------------------------------------------------
 
+# ---------------------------------------------------------------------
+# FASTTRACK MUST BE OFF
+#
+# The factory default configuration adds a fasttrack rule, which shunts
+# established connections around connection tracking so the router can
+# push more throughput with less CPU. On a home router that is a good
+# trade. Here it is not, for one reason: traffic that skips connection
+# tracking also skips the hotspot's byte accounting.
+#
+# With it on, the router sees a fraction of what actually flows. Usage on
+# the website reads far lower than reality — someone watches half an hour
+# of video and it barely moves — and worse, limit-bytes-total is measured
+# against those same counters, so a 5GB bundle never runs out. You would
+# be selling data and not counting most of it.
+#
+# The cost is CPU: every packet goes the slow path. An hAP ac² handles a
+# Starlink line and a compound of phones on the slow path comfortably.
+# Accurate billing is worth more than headline throughput.
+#
+# It is disabled rather than removed so it is obvious it was a decision.
+/ip firewall filter
+set [find action=fasttrack-connection] disabled=yes
+
 /ip dns
 set allow-remote-requests=yes servers=1.1.1.1,8.8.8.8
 
