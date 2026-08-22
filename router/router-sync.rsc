@@ -242,6 +242,12 @@ add name="ibg-sync" dont-require-permissions=no owner=admin \
         # purchase, and the counters must start again from zero.
         :local umark ($mark . ":" . $sub)
 
+        # One customer's failure must not cost everyone else their data
+        # accounting. Anything that throws in here is logged against that
+        # customer and the loop moves on, so the usage report at the end
+        # of the cycle still runs for everybody.
+        :do {
+
         :if ([:len $found] = 0) do={
             /ip hotspot user add name=$uname password=$pass \
                 profile=$uprof \
@@ -254,13 +260,31 @@ add name="ibg-sync" dont-require-permissions=no owner=admin \
             # writes at all.
             :local fid [:pick $found 0]
 
-            # A different subscription id is a new bundle. Zero the
-            # counters BEFORE writing the new limit, so the cap the site
-            # computed applies to a fresh count rather than to the
-            # previous bundle's total.
+            # A different subscription id is a new bundle, so the byte
+            # counters have to start again — they belong to the hotspot
+            # user and otherwise carry straight across from the previous
+            # bundle.
+            #
+            # Wrapped in its own :do/on-error, and that is the important
+            # part. Without it a single failing command here killed the
+            # WHOLE cycle: the outer handler caught it, the usage report
+            # never ran, and because the comment was never written the
+            # next cycle tried the same thing and died the same way. Data
+            # accounting stopped completely, once a minute, for every
+            # customer — from an operation that is only an optimisation.
+            #
+            # Nothing below this depends on the reset succeeding. If the
+            # command is not available on this RouterOS the comment still
+            # gets written, so it is attempted once per bundle rather
+            # than forever, and the worst case is the old behaviour: a
+            # top-up that inherits the previous bundle's count.
             :if ([/ip hotspot user get $fid comment] != $umark) do={
-                /ip hotspot user reset-counters $fid
-                :log info ("ibg-sync: new bundle for " . $uname . ", counters reset")
+                :do {
+                    /ip hotspot user reset-counters $fid
+                    :log info ("ibg-sync: new bundle for " . $uname . ", counters reset")
+                } on-error={
+                    :log warning ("ibg-sync: could not reset counters for " . $uname)
+                }
             }
 
             :if ([/ip hotspot user get $fid limit-bytes-total] != $bytes or \
@@ -272,6 +296,10 @@ add name="ibg-sync" dont-require-permissions=no owner=admin \
                     profile=$uprof \
                     limit-bytes-total=$bytes comment=$umark disabled=no
             }
+        }
+
+        } on-error={
+            :log warning ("ibg-sync: could not provision " . $uname)
         }
 
         :if ([:len $applied] > 0) do={ :set applied ($applied . ",") }
