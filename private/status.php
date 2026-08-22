@@ -63,10 +63,15 @@ if (!$rows) {
             substr((string) $r['plan'], 0, 16),
             rtrim(rtrim((string) $r['data_used_mb'], '0'), '.') ?: '0',
             $r['sync_state'],
-            // Suspended people must not hold a live bundle: the sync
-            // endpoint filters on customer status, so if this ever
-            // prints, the site is telling the router to keep them.
-            $r['customer_status'] === 'suspended' ? '   <-- SUSPENDED BUT STILL LISTED' : '');
+            // NOT a fault. A suspended customer keeps their subscription
+            // row — they have paid for it and get it back on restore —
+            // and the sync endpoint filters on CUSTOMER status, so they
+            // are already excluded from what the router is told.
+            //
+            // This used to say "SUSPENDED BUT STILL LISTED", which sent
+            // me looking for a server bug that did not exist while the
+            // real problem was on the router. Say what is true instead.
+            $r['customer_status'] === 'suspended' ? '   (paused: customer suspended, not sent to the router)' : '');
     }
 
     $zero = 0;
@@ -76,8 +81,14 @@ if (!$rows) {
         echo "  router's usage POST is not reaching the site.\n";
     }
 
+    // Only count customers the router is actually being told about. A
+    // suspended customer's bundle stays 'pending' forever by design —
+    // the router is never asked to create it, so it can never confirm
+    // it, and reporting that as a problem is noise.
     $pending = 0;
-    foreach ($rows as $r) { if ($r['sync_state'] !== 'synced') { $pending++; } }
+    foreach ($rows as $r) {
+        if ($r['sync_state'] !== 'synced' && $r['customer_status'] === 'active') { $pending++; }
+    }
     if ($pending) {
         echo "\n  $pending bundle(s) not yet confirmed by the router. Usage is only\n";
         echo "  recorded once a bundle is confirmed, so these will read 0 until it is.\n";
